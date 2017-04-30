@@ -43,6 +43,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <shellapi.h>
 
 // MinGW lacks the definition of some Win32 constants
 #ifndef XBUTTON1
@@ -438,6 +439,13 @@ void WindowImplWin32::setKeyRepeatEnabled(bool enabled)
     m_keyRepeatEnabled = enabled;
 }
 
+
+////////////////////////////////////////////////////////////
+bool WindowImplWin32::setFileDroppingEnabled(bool enabled)
+{
+    DragAcceptFiles(m_handle, enabled);
+    return true;
+}
 
 ////////////////////////////////////////////////////////////
 void WindowImplWin32::requestFocus()
@@ -1164,6 +1172,48 @@ void WindowImplWin32::processEvent(UINT message, WPARAM wParam, LPARAM lParam)
             if (shouldResize)
                 SetWindowPos(m_handle, pos.hwndInsertAfter, pos.x, pos.y, pos.cx, pos.cy, 0);
 
+            break;
+        }
+
+        // File drop event
+        case WM_DROPFILES:
+        {
+            const HDROP hDrop = (HDROP)wParam;
+
+            // Generate a FilesDropped event
+            Event::FilesDropped event;
+
+            // Get the count
+            event.count = DragQueryFileW(hDrop, 0xFFFFFFFF, NULL, 0);
+            if (event.count == 0)
+                break;
+
+            // Expand the buffer list by one vector
+            FilesType& files = *m_droppedFiles.insert(m_droppedFiles.end(), FilesType());
+
+            // Resize and fill said buffer vector
+            files.resize(event.count);
+            for (unsigned int i = 0; i < event.count; ++i)
+            {
+                std::vector<wchar_t> buf;
+                buf.resize(DragQueryFileW(hDrop, i, NULL, 0) + 1);
+                DragQueryFileW(hDrop, i, &buf.front(), static_cast<UINT>(buf.size()));
+                files[i] = &buf.front();
+            }
+
+            // Let the event point to the buffer vector
+            event.files = &files.front();
+
+            // Fetch the cursor's window-relative position
+            POINT point;
+            DragQueryPoint(hDrop, &point);
+            event.x = static_cast<int>(point.x);
+            event.y = static_cast<int>(point.y);
+
+            // Tell the WinAPI to release the internal buffer
+            DragFinish(hDrop);
+
+            pushEvent(event);
             break;
         }
     }

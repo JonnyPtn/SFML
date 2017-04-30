@@ -210,6 +210,14 @@ void WindowImpl::setJoystickThreshold(float threshold)
     m_joystickThreshold = threshold;
 }
 
+////////////////////////////////////////////////////////////
+bool WindowImpl::setFileDroppingEnabled( bool enabled )
+    {
+    // This is the fallback for unsupported platforms.
+    // Trying to enable file dropping returns a bad value
+    // indicating an error, whereas disabling it is fine.
+    return !enabled;
+    }
 
 ////////////////////////////////////////////////////////////
 void WindowImpl::setMinimumSize(const std::optional<Vector2u>& minimumSize)

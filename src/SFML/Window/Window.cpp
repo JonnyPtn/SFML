@@ -175,6 +175,13 @@ void Window::setFramerateLimit(unsigned int limit)
 
 
 ////////////////////////////////////////////////////////////
+bool Window::setFileDroppingEnabled(bool enabled)
+{
+    return m_impl ? m_impl->setFileDroppingEnabled(enabled) : false;
+}
+
+
+////////////////////////////////////////////////////////////
 bool Window::setActive(bool active) const
 {
     if (m_context)
@@ -214,6 +221,7 @@ void Window::initialize()
     // Setup default behaviors (to get a consistent behavior across different implementations)
     setVerticalSyncEnabled(false);
     setFramerateLimit(0);
+    setFileDroppingEnabled(false);
 
     // Reset frame time
     m_clock.restart();

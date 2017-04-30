@@ -31,6 +31,7 @@
 #include <SFML/Window/Keyboard.hpp>
 #include <SFML/Window/Mouse.hpp>
 #include <SFML/Window/Sensor.hpp>
+#include <SFML/System/String.hpp>
 
 #include <SFML/System/Vector2.hpp>
 
@@ -276,8 +277,17 @@ public:
     };
 
     ////////////////////////////////////////////////////////////
-    /// \brief Touch ended event subtype
+    /// \brief File dropping parameters (FilesDropped)
     ///
+    ////////////////////////////////////////////////////////////
+    struct FilesDropped
+    {
+        unsigned int count;  ///< Number of dropped files
+        const String* files; ///< Pointer to the first file, access with event.droppedFiles.files[i] (in range [0 .. event.droppedFiles.count - 1])
+        int x;               ///< X position of the mouse pointer, relative to the left of the owner window
+        int y;               ///< Y position of the mouse pointer, relative to the top of the owner window
+    };
+
     ////////////////////////////////////////////////////////////
     struct TouchEnded
     {
@@ -387,7 +397,8 @@ private:
                  TouchBegan,
                  TouchMoved,
                  TouchEnded,
-                 SensorChanged>
+                 SensorChanged,
+                 FilesDropped>
         m_data; //!< Event data
 
     ////////////////////////////////////////////////////////////

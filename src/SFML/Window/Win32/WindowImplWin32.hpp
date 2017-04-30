@@ -31,6 +31,10 @@
 #include <SFML/Window/WindowEnums.hpp>
 #include <SFML/Window/WindowHandle.hpp>
 #include <SFML/Window/WindowImpl.hpp>
+#include <SFML/System/String.hpp>
+#include <windows.h>
+#include <vector>
+#include <list>
 
 #include <SFML/System/Vector2.hpp>
 #include <SFML/System/Win32/WindowsHeader.hpp>
@@ -175,6 +179,16 @@ public:
     void setKeyRepeatEnabled(bool enabled) override;
 
     ////////////////////////////////////////////////////////////
+    /// \brief Enable or disable file dropping
+    ///
+    /// \param enabled True to enable, false to disable
+    ///
+    /// \return True if operation was successful, false otherwise
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual bool setFileDroppingEnabled(bool enabled);
+
+    ////////////////////////////////////////////////////////////
     /// \brief Request the current window to be made the active
     ///        foreground window
     ///
@@ -293,6 +307,11 @@ private:
     static Keyboard::Scancode toScancode(WPARAM wParam, LPARAM lParam);
 
     ////////////////////////////////////////////////////////////
+	// Type for storing a batch of dropped files
+	////////////////////////////////////////////////////////////
+    typedef std::vector<String> FilesType;
+
+    ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
     HWND     m_handle{};            //!< Win32 handle of the window
@@ -308,6 +327,7 @@ private:
     bool m_mouseInside{};   //!< Mouse is inside the window?
     bool m_fullscreen{};    //!< Is the window fullscreen?
     bool m_cursorGrabbed{}; //!< Is the mouse cursor trapped?
+    std::list<FilesType> m_droppedFiles;     ///< Buffer for the dropped files
 };
 
 } // namespace priv
