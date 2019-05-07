@@ -25,7 +25,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#include <SFML/Graphics/TextureSaver.hpp>
+#include <SFML/Graphics/ShaderImpl.hpp>
 
 
 namespace sf
@@ -33,16 +33,9 @@ namespace sf
 namespace priv
 {
 ////////////////////////////////////////////////////////////
-TextureSaver::TextureSaver()
+ShaderImpl::~ShaderImpl()
 {
-    glCheck(glGetIntegerv(GL_TEXTURE_BINDING_2D, &m_textureBinding));
-}
-
-
-////////////////////////////////////////////////////////////
-TextureSaver::~TextureSaver()
-{
-    glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(m_textureBinding)));
+    // Nothing to do
 }
 
 } // namespace priv

@@ -29,9 +29,9 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Export.hpp>
-
 #include <SFML/Graphics/Rect.hpp>
-#include <SFML/Window/GlResource.hpp>
+#include <SFML/System/Vector2.hpp>
+#include <string>
 
 #include <filesystem>
 
@@ -39,17 +39,23 @@
 namespace sf
 {
 class InputStream;
-class RenderTarget;
 class RenderTexture;
 class Text;
+class Image;
 class Window;
 class Image;
+
+namespace priv
+{
+    class TextureImpl;
+    class RenderTargetImpl;
+}
 
 ////////////////////////////////////////////////////////////
 /// \brief Image living on the graphics card that can be used for drawing
 ///
 ////////////////////////////////////////////////////////////
-class SFML_GRAPHICS_API Texture : GlResource
+class SFML_GRAPHICS_API Texture
 {
 public:
     ////////////////////////////////////////////////////////////
@@ -582,45 +588,12 @@ public:
 private:
     friend class Text;
     friend class RenderTexture;
-    friend class RenderTarget;
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Get a valid image size according to hardware support
-    ///
-    /// This function checks whether the graphics driver supports
-    /// non power of two sizes or not, and adjusts the size
-    /// accordingly.
-    /// The returned size is greater than or equal to the original size.
-    ///
-    /// \param size size to convert
-    ///
-    /// \return Valid nearest size (greater than or equal to specified size)
-    ///
-    ////////////////////////////////////////////////////////////
-    static unsigned int getValidSize(unsigned int size);
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Invalidate the mipmap if one exists
-    ///
-    /// This also resets the texture's minifying function.
-    /// This function is mainly for internal use by RenderTexture.
-    ///
-    ////////////////////////////////////////////////////////////
-    void invalidateMipmap();
+    friend class priv::RenderTargetImpl;
 
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    Vector2u      m_size;          //!< Public texture size
-    Vector2u      m_actualSize;    //!< Actual texture size (can be greater than public size because of padding)
-    unsigned int  m_texture;       //!< Internal texture identifier
-    bool          m_isSmooth;      //!< Status of the smooth filter
-    bool          m_sRgb;          //!< Should the texture source be converted from sRGB?
-    bool          m_isRepeated;    //!< Is the texture in repeat mode?
-    mutable bool  m_pixelsFlipped; //!< To work around the inconsistency in Y orientation
-    bool          m_fboAttachment; //!< Is this texture owned by a framebuffer object?
-    bool          m_hasMipmap;     //!< Has the mipmap been generated?
-    std::uint64_t m_cacheId;       //!< Unique number that identifies the texture to the render target's cache
+    priv::TextureImpl* m_impl; ///< Platform/hardware specific implementation
 };
 
 } // namespace sf

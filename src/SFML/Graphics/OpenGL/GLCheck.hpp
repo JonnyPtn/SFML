@@ -29,8 +29,7 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Config.hpp>
-
-#include <SFML/Graphics/GLExtensions.hpp>
+#include <SFML/Graphics/OpenGL/GLExtensions.hpp>
 
 #include <filesystem>
 

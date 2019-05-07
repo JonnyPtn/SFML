@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////
 //
 // SFML - Simple and Fast Multimedia Library
-// Copyright (C) 2007-2022 Laurent Gomila (laurent@sfml-dev.org)
+// Copyright (C) 2007-2019 Laurent Gomila (laurent@sfml-dev.org)
 //
 // This software is provided 'as-is', without any express or implied warranty.
 // In no event will the authors be held liable for any damages arising from the use of this software.
@@ -22,13 +22,10 @@
 //
 ////////////////////////////////////////////////////////////
 
-#ifndef SFML_TEXTURESAVER_HPP
-#define SFML_TEXTURESAVER_HPP
-
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#include <SFML/Graphics/GLCheck.hpp>
+#include <SFML/Graphics/TextureImpl.hpp>
 
 
 namespace sf
@@ -36,38 +33,11 @@ namespace sf
 namespace priv
 {
 ////////////////////////////////////////////////////////////
-/// \brief Automatic wrapper for saving and restoring the current texture binding
-///
-////////////////////////////////////////////////////////////
-class TextureSaver
+TextureImpl::~TextureImpl()
 {
-public:
-    ////////////////////////////////////////////////////////////
-    /// \brief Default constructor
-    ///
-    /// The current texture binding is saved.
-    ///
-    ////////////////////////////////////////////////////////////
-    TextureSaver();
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Destructor
-    ///
-    /// The previous texture binding is restored.
-    ///
-    ////////////////////////////////////////////////////////////
-    ~TextureSaver();
-
-private:
-    ////////////////////////////////////////////////////////////
-    // Member data
-    ////////////////////////////////////////////////////////////
-    GLint m_textureBinding; //!< Texture binding to restore
-};
+    // Nothing to do
+}
 
 } // namespace priv
 
 } // namespace sf
-
-
-#endif // SFML_TEXTURESAVER_HPP

@@ -25,7 +25,9 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#include <SFML/Graphics/GLExtensions.hpp>
+#define SF_GLAD_GL_IMPLEMENTATION
+#include <SFML/Graphics/OpenGL/GLExtensions.hpp>
+#include <SFML/Window/Context.hpp>
 #include <SFML/System/Err.hpp>
 #include <SFML/Window/Context.hpp>
 
