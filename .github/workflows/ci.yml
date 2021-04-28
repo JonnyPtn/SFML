@@ -54,3 +54,15 @@ jobs:
     - name: Build
       shell: bash
       run: cmake --build $GITHUB_WORKSPACE/build --config Release --target install
+      
+    - name: Package
+      shell: bash
+      run: |
+        cmake --build $GITHUB_WORKSPACE/build --config Debug --target package -DCPACK_PACKAGE_INSTALL_DIRECTORY=$GITHUB_WORKSPACE/package-debug-${{ matrix.platform.name }}-${{ matrix.config.name }}
+        cmake --build $GITHUB_WORKSPACE/build --config Release --target package -DCPACK_PACKAGE_INSTALL_DIRECTORY=$GITHUB_WORKSPACE/package-release-${{ matrix.platform.name }}-${{ matrix.config.name }}
+    
+    - name: Upload
+      uses: 'actions/upload-artifact@v2'
+      with:
+        name: ${{ matrix.platform.name }}-${{ matrix.config.name }}
+        path: $GITHUB_WORKSPACE/package-*
