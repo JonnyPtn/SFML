@@ -57,9 +57,7 @@ jobs:
       
     - name: Package
       shell: bash
-      run: |
-        cmake --build $GITHUB_WORKSPACE/build --config Debug --target package
-        cmake --build $GITHUB_WORKSPACE/build --config Release --target package
+      run: cmake --build $GITHUB_WORKSPACE/build --config Release --target package
   
     - name: Upload
       uses: 'actions/upload-artifact@v2'
