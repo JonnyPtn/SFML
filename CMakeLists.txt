@@ -521,3 +521,5 @@ elseif(SFML_OS_ANDROID)
 endif()
 
 sfml_export_targets()
+
+include(CPack)
