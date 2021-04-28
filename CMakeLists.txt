@@ -522,8 +522,10 @@ endif()
 
 sfml_export_targets()
 
-include(CPack)
+set(CPACK_OUTPUT_FILE_PREFIX package)
 
 set(CPACK_PACKAGE_VERSION_MAJOR ${VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${VERSION_PATCH})
+
+include(CPack)
