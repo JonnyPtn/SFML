@@ -60,15 +60,9 @@ jobs:
       run: |
         cmake --build $GITHUB_WORKSPACE/build --config Debug --target package
         cmake --build $GITHUB_WORKSPACE/build --config Release --target package
-    
-    - name: Upload Debug
+  
+    - name: Upload
       uses: 'actions/upload-artifact@v2'
       with:
         name: ${{ matrix.platform.name }} ${{ matrix.config.name }}
-        path: package-Debug/*
-        
-    - name: Upload Release
-      uses: 'actions/upload-artifact@v2'
-      with:
-        name: ${{ matrix.platform.name }} ${{ matrix.config.name }}
-        path: package-Release/*
+        path: *.tar.gz
