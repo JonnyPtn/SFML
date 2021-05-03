@@ -57,10 +57,10 @@ jobs:
       
     - name: Package
       shell: bash
-      run: cmake --build $GITHUB_WORKSPACE/build --config Release --target package
+      run: cmake --build $GITHUB_WORKSPACE/build --config Release --target package -DCPACK_PACKAGING_INSTALL_PREFIX=$GITHUB_WORKSPACE
   
     - name: Upload
       uses: 'actions/upload-artifact@v2'
       with:
         name: ${{ matrix.platform.name }} ${{ matrix.config.name }}
-        path: package/*
+        path: $GITHUB_WORKSPACE/package/*
