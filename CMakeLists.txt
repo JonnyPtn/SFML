@@ -185,6 +185,8 @@ if(SFML_USE_SYSTEM_DEPS)
     endforeach()
 
     list(REMOVE_DUPLICATES CMAKE_IGNORE_PATH)
+else()
+    set(CMAKE_FIND_FRAMEWORK LAST)
 endif()
 
 # Visual C++: remove warnings regarding SL security and algorithms on pointers
