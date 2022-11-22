@@ -44,6 +44,7 @@
 namespace sf
 {
 class Font;
+class Texture;
 
 ////////////////////////////////////////////////////////////
 /// \brief Graphical text that can be drawn to a render target
