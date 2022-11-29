@@ -64,6 +64,7 @@ function(set_target_warnings target)
             -Wnull-dereference # warn if a null dereference is detected
             -Wold-style-cast # warn for c-style casts
             -Wpedantic # warn if non-standard C++ is used
+            -Wpadded # warn if class is padded for alignment
             $<$<BOOL:${SFML_OS_ANDROID}>:-Wno-main> # allow main() to be called
         )
     endif()
