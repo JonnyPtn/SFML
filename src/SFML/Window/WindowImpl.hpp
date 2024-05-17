@@ -45,6 +45,7 @@
 #include <SFML/System/Vector3.hpp>
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -297,6 +298,14 @@ public:
     ////////////////////////////////////////////////////////////
     bool createVulkanSurface(const VkInstance& instance, VkSurfaceKHR& surface, const VkAllocationCallbacks* allocator) const;
 
+    ////////////////////////////////////////////////////////////
+    /// \brief Set a callback to be used while the window is resizing
+    ///
+    /// \param callback the function which will be called during a window resize
+    ///
+    ////////////////////////////////////////////////////////////
+    void setResizeCallback( std::function<void()> callback );
+
 protected:
     ////////////////////////////////////////////////////////////
     /// \brief Default constructor
@@ -321,6 +330,8 @@ protected:
     ///
     ////////////////////////////////////////////////////////////
     virtual void processEvents() = 0;
+
+    std::function<void()> m_resizeCallback; //!< Callback during resizing
 
 private:
     struct JoystickStatesImpl;

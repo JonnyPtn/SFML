@@ -121,6 +121,12 @@ std::unique_ptr<WindowImpl> WindowImpl::create(WindowHandle handle)
 
 
 ////////////////////////////////////////////////////////////
+void WindowImpl::setResizeCallback( std::function<void()> callback )
+{
+    m_resizeCallback = callback;
+}
+
+////////////////////////////////////////////////////////////
 WindowImpl::WindowImpl() : m_joystickStatesImpl(std::make_unique<JoystickStatesImpl>())
 {
     // Get the initial joystick states

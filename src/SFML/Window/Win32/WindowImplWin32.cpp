@@ -753,6 +753,11 @@ void WindowImplWin32::processEvent(UINT message, WPARAM wParam, LPARAM lParam)
                 // Restore/update cursor grabbing
                 grabCursor(m_cursorGrabbed);
             }
+            else if ( m_resizing )
+            {
+                m_resizeCallback();
+
+            }
             break;
         }
 
@@ -1287,7 +1292,7 @@ LRESULT CALLBACK WindowImplWin32::globalOnEvent(HWND handle, UINT message, WPARA
         return 0;
 
     // Don't forward the menu system command, so that pressing ALT or F10 doesn't steal the focus
-    if ((message == WM_SYSCOMMAND) && (wParam == SC_KEYMENU))
+    if ((message == WM_SYSCOMMAND) && (wParam == SC_KEYMENU || wParam == SC_SIZE || wParam == SC_MOVE))
         return 0;
 
     return DefWindowProcW(handle, message, wParam, lParam);

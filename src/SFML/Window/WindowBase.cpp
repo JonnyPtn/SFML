@@ -335,6 +335,12 @@ bool WindowBase::createVulkanSurface(const VkInstance& instance, VkSurfaceKHR& s
     return m_impl ? m_impl->createVulkanSurface(instance, surface, allocator) : false;
 }
 
+////////////////////////////////////////////////////////////
+void WindowBase::setResizeCallback( std::function<void()> callback )
+{
+    m_impl->setResizeCallback( callback );
+}
+
 
 ////////////////////////////////////////////////////////////
 void WindowBase::onCreate()

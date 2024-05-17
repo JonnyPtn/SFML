@@ -44,8 +44,7 @@ int main()
 
     // Create the window of the application
     sf::RenderWindow window(sf::VideoMode({static_cast<unsigned int>(gameWidth), static_cast<unsigned int>(gameHeight)}, 32),
-                            "SFML Tennis",
-                            sf::Style::Titlebar | sf::Style::Close);
+                            "SFML Tennis");
     window.setVerticalSyncEnabled(true);
 
     // Load the sounds used in the game
@@ -112,6 +111,33 @@ int main()
 
     sf::Clock clock;
     bool      isPlaying = false;
+
+    // Create our render function
+    auto render = [&]()
+        {
+            // Clear the window
+            window.clear( sf::Color( 50, 50, 50 ) );
+
+            if ( isPlaying )
+            {
+                // Draw the paddles and the ball
+                window.draw( leftPaddle );
+                window.draw( rightPaddle );
+                window.draw( ball );
+            }
+            else
+            {
+                // Draw the pause message
+                window.draw( pauseMessage );
+                window.draw( sfmlLogo );
+            }
+
+            // Display things on screen
+            window.display();
+        };
+
+    window.setResizeCallback( render );
+
     while (window.isOpen())
     {
         // Handle events
@@ -267,25 +293,7 @@ int main()
             }
         }
 
-        // Clear the window
-        window.clear(sf::Color(50, 50, 50));
-
-        if (isPlaying)
-        {
-            // Draw the paddles and the ball
-            window.draw(leftPaddle);
-            window.draw(rightPaddle);
-            window.draw(ball);
-        }
-        else
-        {
-            // Draw the pause message
-            window.draw(pauseMessage);
-            window.draw(sfmlLogo);
-        }
-
-        // Display things on screen
-        window.display();
+        render();
     }
 
     return EXIT_SUCCESS;

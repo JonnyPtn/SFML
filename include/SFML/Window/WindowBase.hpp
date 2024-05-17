@@ -35,6 +35,7 @@
 
 #include <SFML/System/Vector2.hpp>
 
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -451,6 +452,16 @@ public:
     [[nodiscard]] bool createVulkanSurface(const VkInstance&            instance,
                                            VkSurfaceKHR&                surface,
                                            const VkAllocationCallbacks* allocator = nullptr);
+
+
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Set a callback to be used while the window is resizing
+    ///
+    /// \param callback the function which will be called during a window resize
+    ///
+    ////////////////////////////////////////////////////////////
+    void setResizeCallback( std::function<void()> callback );
 
 protected:
     ////////////////////////////////////////////////////////////
