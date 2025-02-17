@@ -31,6 +31,9 @@
 
 #include <cctype>
 
+#ifdef SFML_SYSTEM_IOS
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
 namespace sf
 {
@@ -56,6 +59,15 @@ std::FILE* openFile(const std::filesystem::path& filename, std::string_view mode
 #ifdef SFML_SYSTEM_WINDOWS
     const std::wstring wmode(mode.begin(), mode.end());
     return _wfopen(filename.c_str(), wmode.data());
+#elif defined(SFML_SYSTEM_IOS)
+    CFBundleRef mainBundle = CFBundleGetMainBundle();
+    assert(mainBundle);
+    CFURLRef resourceURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
+    CFStringRef resourcePath = CFURLCopyFileSystemPath(resourceURL, kCFURLPOSIXPathStyle);
+    std::filesystem::path resourceFolder = CFStringGetCStringPtr(resourcePath, kCFStringEncodingUTF8);
+    CFRelease(resourcePath);
+    CFRelease(resourceURL);
+    return std::fopen((resourceFolder / filename).c_str(), mode.data());
 #else
     return std::fopen(filename.c_str(), mode.data());
 #endif

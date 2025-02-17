@@ -73,6 +73,17 @@ target_compile_definitions(test-sfml-system PRIVATE
     EXPECTED_SFML_VERSION_IS_RELEASE=$<IF:$<BOOL:${VERSION_IS_RELEASE}>,true,false>
 )
 
+if(IOS AND XCODE)
+    set(SYSTEM_RESOURCES
+        System/test-🐌.txt
+        System/test-ń.txt
+        System/test.txt
+        System/test2.txt
+    )
+    target_sources(test-sfml-system PRIVATE ${SYSTEM_RESOURCES})
+    set_source_files_properties(${SYSTEM_RESOURCES} PROPERTIES MACOSX_PACKAGE_LOCATION "System")
+endif()
+
 set(WINDOW_SRC
     Window/Clipboard.test.cpp
     Window/Context.test.cpp
