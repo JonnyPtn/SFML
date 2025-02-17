@@ -29,11 +29,14 @@ TEST_CASE("[Window] sf::Cursor", runDisplayTests())
             CHECK_THROWS_AS(sf::Cursor(nullptr, {}, {}), sf::Exception);
             CHECK_THROWS_AS(sf::Cursor(pixels.data(), {0, 1}, {}), sf::Exception);
             CHECK_THROWS_AS(sf::Cursor(pixels.data(), {1, 0}, {}), sf::Exception);
+#ifndef SFML_SYSTEM_IOS
             CHECK_NOTHROW(sf::Cursor(pixels.data(), {1, 1}, {}));
+#endif
         }
 
         SECTION("System")
         {
+#ifndef SFML_SYSTEM_IOS
             CHECK_NOTHROW(sf::Cursor(sf::Cursor::Type::Hand));
             CHECK_NOTHROW(sf::Cursor(sf::Cursor::Type::SizeHorizontal));
             CHECK_NOTHROW(sf::Cursor(sf::Cursor::Type::SizeVertical));
@@ -48,6 +51,7 @@ TEST_CASE("[Window] sf::Cursor", runDisplayTests())
             CHECK_NOTHROW(sf::Cursor(sf::Cursor::Type::Cross));
             CHECK_NOTHROW(sf::Cursor(sf::Cursor::Type::Help));
             CHECK_NOTHROW(sf::Cursor(sf::Cursor::Type::NotAllowed));
+#endif
         }
     }
 
@@ -58,11 +62,14 @@ TEST_CASE("[Window] sf::Cursor", runDisplayTests())
         CHECK(!sf::Cursor::createFromPixels(nullptr, {}, {}));
         CHECK(!sf::Cursor::createFromPixels(pixels.data(), {0, 1}, {}));
         CHECK(!sf::Cursor::createFromPixels(pixels.data(), {1, 0}, {}));
+#ifndef SFML_SYSTEM_IOS
         CHECK(sf::Cursor::createFromPixels(pixels.data(), {1, 1}, {}));
+#endif
     }
 
     SECTION("loadFromSystem()")
     {
+#ifndef SFML_SYSTEM_IOS
         CHECK(sf::Cursor::createFromSystem(sf::Cursor::Type::Hand));
         CHECK(sf::Cursor::createFromSystem(sf::Cursor::Type::SizeHorizontal));
         CHECK(sf::Cursor::createFromSystem(sf::Cursor::Type::SizeVertical));
@@ -77,5 +84,6 @@ TEST_CASE("[Window] sf::Cursor", runDisplayTests())
         CHECK(sf::Cursor::createFromSystem(sf::Cursor::Type::Cross));
         CHECK(sf::Cursor::createFromSystem(sf::Cursor::Type::Help));
         CHECK(sf::Cursor::createFromSystem(sf::Cursor::Type::NotAllowed));
+#endif
     }
 }

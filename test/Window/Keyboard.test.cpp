@@ -35,16 +35,21 @@ TEST_CASE("[Window] sf::Keyboard", runDisplayTests())
 
     SECTION("localize(Scancode)")
     {
+#ifndef SFML_SYSTEM_IOS
         CHECK(sf::Keyboard::localize(sf::Keyboard::Scan::Space) == sf::Keyboard::Key::Space);
+#endif
     }
 
     SECTION("delocalize(Key)")
     {
+#ifndef SFML_SYSTEM_IOS
         CHECK(sf::Keyboard::delocalize(sf::Keyboard::Key::Space) == sf::Keyboard::Scan::Space);
+#endif
     }
 
     SECTION("getDescription(Scancode)")
     {
+#ifndef SFML_SYSTEM_IOS
         CHECK(sf::Keyboard::getDescription(sf::Keyboard::Scan::F1) == "F1");
         CHECK(sf::Keyboard::getDescription(sf::Keyboard::Scan::F2) == "F2");
         CHECK(sf::Keyboard::getDescription(sf::Keyboard::Scan::F3) == "F3");
@@ -57,5 +62,6 @@ TEST_CASE("[Window] sf::Keyboard", runDisplayTests())
         CHECK(sf::Keyboard::getDescription(sf::Keyboard::Scan::F10) == "F10");
         CHECK(sf::Keyboard::getDescription(sf::Keyboard::Scan::F11) == "F11");
         CHECK(sf::Keyboard::getDescription(sf::Keyboard::Scan::F12) == "F12");
+#endif
     }
 }
