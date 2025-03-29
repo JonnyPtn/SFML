@@ -100,7 +100,7 @@ private:
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    Joystick::Identification m_identification; ///< Joystick identification
+    mutable Joystick::Identification m_identification; ///< Joystick identification
 };
 
 } // namespace sf::priv
