@@ -100,7 +100,8 @@ private:
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    mutable Joystick::Identification m_identification; ///< Joystick identification
+    Joystick::Identification m_identification; ///< Joystick identification
+    int32_t m_currentDeviceIdx = -1;
 };
 
 } // namespace sf::priv
