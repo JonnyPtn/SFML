@@ -261,9 +261,9 @@ bool JoystickImpl::open(unsigned int joy_index)
         }
 
         m_identification = Joystick::Identification{
-                inputDevice->getName(),
-                inputDevice->getVendorId(),
-                inputDevice->getProductId(),
+            inputDevice->getName(),
+            inputDevice->getVendorId(),
+            inputDevice->getProductId(),
         };
 
         m_currentDeviceIdx = int(i);
@@ -303,8 +303,16 @@ Joystick::Identification JoystickImpl::getIdentification() const
 ////////////////////////////////////////////////////////////
 JoystickState JoystickImpl::update()
 {
+    // Retrieve activity states
+    ActivityStates&       states = getActivity();
+    const std::lock_guard lock(states.mutex);
+
     // To implement
-    return {};
+    return {
+        true,
+        {},
+        states.isJoystickButtonPressed[0]
+    };
 }
 
 } // namespace sf::priv

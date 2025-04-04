@@ -29,6 +29,7 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/Window/EglContext.hpp>
 #include <SFML/Window/Event.hpp>
+#include <SFML/Window/Android/JoystickButton.hpp>
 
 #include <SFML/System/EnumArray.hpp>
 
@@ -40,6 +41,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <map>
 
 #include <cstddef>
 
@@ -78,6 +80,9 @@ struct ActivityStates
     std::unordered_map<int, Vector2i>                  touchEvents;
     Vector2i                                           mousePosition;
     EnumArray<Mouse::Button, bool, Mouse::ButtonCount> isButtonPressed{};
+
+    std::map<uint32_t, EnumArray<Joystick::Axis, float, Joystick::AxisCount>> joyAxii;
+    std::map<uint32_t, std::array<bool, Joystick::ButtonCount>> isJoystickButtonPressed{};
 
     bool mainOver{};
 
