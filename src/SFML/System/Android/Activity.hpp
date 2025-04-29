@@ -81,8 +81,8 @@ struct ActivityStates
     Vector2i                                           mousePosition;
     EnumArray<Mouse::Button, bool, Mouse::ButtonCount> isButtonPressed{};
 
-    std::map<uint32_t, EnumArray<Joystick::Axis, float, Joystick::AxisCount>> joyAxii;
-    std::map<uint32_t, std::array<bool, Joystick::ButtonCount>> isJoystickButtonPressed{};
+    EnumArray<Joystick::Axis, float, Joystick::AxisCount> joyAxii;
+    std::array<bool, Joystick::ButtonCount> isJoystickButtonPressed{};
 
     bool mainOver{};
 

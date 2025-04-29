@@ -483,9 +483,8 @@ int WindowImplAndroid::processKeyboardKeyEvent(AInputEvent* inputEvent, std::int
 ////////////////////////////////////////////////////////////
 int WindowImplAndroid::processJoystickButtonEvent(std::int32_t action, Joystick::Button button, ActivityStates& states)
 {
-    auto joyIdx = 0u;
-    auto buttonIdx = static_cast<std::underlying_type_t<decltype(button)>>(button);
-    states.isJoystickButtonPressed[joyIdx][buttonIdx] = action == AKEY_EVENT_ACTION_DOWN;
+    const auto buttonIdx = static_cast<std::underlying_type_t<decltype(button)>>(button);
+    states.isJoystickButtonPressed[buttonIdx] = action == AKEY_EVENT_ACTION_DOWN;
     return 1;
 }
 
@@ -518,6 +517,17 @@ int WindowImplAndroid::processMotionEvent(AInputEvent* inputEvent, ActivityState
             forwardEvent(touchMoved);
 
             states.touchEvents[id] = touchMoved.position;
+        }
+        else if (static_cast<std::uint32_t>(device) & AINPUT_SOURCE_JOYSTICK)
+        {
+            states.joyAxii[Joystick::Axis::X] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_X, p);
+            states.joyAxii[Joystick::Axis::Y] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Y, p);
+            states.joyAxii[Joystick::Axis::Z] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Z, p);
+            states.joyAxii[Joystick::Axis::R] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RTRIGGER, p);
+            states.joyAxii[Joystick::Axis::U] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_LTRIGGER, p);
+            states.joyAxii[Joystick::Axis::V] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RZ, p);
+            states.joyAxii[Joystick::Axis::PovX] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_X, p);
+            states.joyAxii[Joystick::Axis::PovY] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_Y, p);
         }
     }
 

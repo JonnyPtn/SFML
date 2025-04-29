@@ -29,61 +29,53 @@
 #include <SFML/System/Err.hpp>
 #include <SFML/System/Android/Activity.hpp>
 
-static std::string javaStringToStd(JNIEnv* env, jstring str)
-{
-    const char* utfChars = env->GetStringUTFChars(str, nullptr);
-    std::string result(utfChars);
-    env->ReleaseStringUTFChars(str, utfChars);
-    return result;
-}
-
 template<class T>
 class JniArray {
 public:
     JniArray(JNIEnv* env, jintArray array)
-        : env(env)
-        , array(array)
-        , length(env->GetArrayLength(array))
-        , data(env->GetIntArrayElements(array, nullptr))
+        : m_env(env)
+        , m_array(array)
+        , m_length(env->GetArrayLength(array))
+        , m_data(env->GetIntArrayElements(array, nullptr))
     {}
 
-    JniArray(JniArray&& other)
+    JniArray(JniArray&& other) noexcept
     {
-        std::swap(env, other.env);
-        std::swap(array, other.array);
-        std::swap(length, other.length);
-        std::swap(data, other.data);
+        std::swap(m_env, other.m_env);
+        std::swap(m_array, other.m_array);
+        std::swap(m_length, other.m_length);
+        std::swap(m_data, other.m_data);
     }
 
     ~JniArray()
     {
-        if (data)
-            env->ReleaseIntArrayElements(array, data, 0);
+        if (m_data)
+            m_env->ReleaseIntArrayElements(m_array, m_data, 0);
     }
 
 public:
     T operator[](ssize_t idx)
     {
-        assert(0 <= idx && idx <= length);
-        return data[idx];
+        assert(0 <= idx && idx <= m_length);
+        return m_data[idx];
     }
 
     const T operator[](ssize_t idx) const
     {
-        assert(0 <= idx && idx <= length);
-        return data[idx];
+        assert(0 <= idx && idx <= m_length);
+        return m_data[idx];
     }
 
-    ssize_t getLength() const noexcept
+    [[nodiscard]] ssize_t getLength() const noexcept
     {
-        return length;
+        return m_length;
     }
 
 private:
-    JNIEnv * env = nullptr;
-    jintArray array = nullptr;
-    ssize_t length = 0;
-    T* data = nullptr;
+    JNIEnv * m_env = nullptr;
+    jintArray m_array = nullptr;
+    ssize_t m_length = 0;
+    T* m_data = nullptr;
 };
 
 namespace sf::priv
@@ -98,12 +90,12 @@ public:
         jmethodID getVendorIdMethod,
         jmethodID getProductIdMethod,
         jmethodID supportsSourceMethod)
-        : env(env)
-        , inputDevice(inputDevice)
-        , getNameMethod(getNameMethod)
-        , getVendorIdMethod(getVendorIdMethod)
-        , getProductIdMethod(getProductIdMethod)
-        , supportsSourceMethod(supportsSourceMethod)
+        : m_env(env)
+        , m_inputDevice(inputDevice)
+        , m_getNameMethod(getNameMethod)
+        , m_getVendorIdMethod(getVendorIdMethod)
+        , m_getProductIdMethod(getProductIdMethod)
+        , m_supportsSourceMethod(supportsSourceMethod)
     {}
 
 public:
@@ -116,7 +108,8 @@ public:
             return std::nullopt;
         }
 
-        jintArray deviceIdsArray = (jintArray)env->CallStaticObjectMethod(inputDeviceClass, getDeviceIdsMethod);
+        auto deviceIdsArray = static_cast<jintArray>(
+                env->CallStaticObjectMethod(inputDeviceClass, getDeviceIdsMethod));
         if (deviceIdsArray == nullptr)
         {
             err() << "No input devices found." << std::endl;
@@ -156,50 +149,59 @@ public:
                 supportsSourceMethod);
     }
 
-    unsigned getVendorId() const
+    [[nodiscard]] unsigned getVendorId() const
     {
-        return (unsigned)env->CallIntMethod(inputDevice, getVendorIdMethod);
+        return static_cast<unsigned>(
+                m_env->CallIntMethod(m_inputDevice, m_getVendorIdMethod));
     }
 
-    unsigned getProductId() const
+    [[nodiscard]] unsigned getProductId() const
     {
-        return (unsigned)env->CallIntMethod(inputDevice, getProductIdMethod);
+        return static_cast<unsigned>(
+                m_env->CallIntMethod(m_inputDevice, m_getProductIdMethod));
     }
 
-    std::string getName() const
+    [[nodiscard]] std::string getName() const
     {
         return javaStringToStd(
-            env,
-            (jstring)env->CallObjectMethod(
-                inputDevice,
-                getNameMethod));
+            static_cast<jstring>(m_env->CallObjectMethod(
+                m_inputDevice,
+                m_getNameMethod)));
     }
 
-    bool supportsSource(size_t sourceFlags) const
+    [[nodiscard]] bool supportsSource(size_t sourceFlags) const
     {
-        return env->CallBooleanMethod(inputDevice, supportsSourceMethod, jint(sourceFlags));
+        return m_env->CallBooleanMethod(
+                m_inputDevice, m_supportsSourceMethod, jint(sourceFlags));
     }
 
 private:
-    JNIEnv* env;
-    jobject inputDevice;
-    jmethodID getNameMethod;
-    jmethodID getVendorIdMethod;
-    jmethodID getProductIdMethod;
-    jmethodID supportsSourceMethod;
+    std::string javaStringToStd(jstring str) const
+    {
+        const char* utfChars = m_env->GetStringUTFChars(str, nullptr);
+        std::string result(utfChars);
+        m_env->ReleaseStringUTFChars(str, utfChars);
+        return result;
+    }
+
+private:
+    JNIEnv* m_env;
+    jobject m_inputDevice;
+    jmethodID m_getNameMethod;
+    jmethodID m_getVendorIdMethod;
+    jmethodID m_getProductIdMethod;
+    jmethodID m_supportsSourceMethod;
 };
 
 ////////////////////////////////////////////////////////////
 void JoystickImpl::initialize()
 {
-    // To implement
 }
 
 
 ////////////////////////////////////////////////////////////
 void JoystickImpl::cleanup()
 {
-    // To implement
 }
 
 
@@ -215,16 +217,17 @@ bool JoystickImpl::isConnected(unsigned int index)
 
 
 ////////////////////////////////////////////////////////////
-bool JoystickImpl::open(unsigned int joy_index)
+bool JoystickImpl::open(unsigned int joyIndex)
 {
+    if (joyIndex != 0) return false;
+
     // Retrieve activity states
     ActivityStates&       states = getActivity();
     const std::lock_guard lock(states.mutex);
 
     // Initializes JNI
     jint lResult = 0;
-
-    // TODO: extract to common method also used in windowimpl
+    
     JavaVM* lJavaVM = states.activity->vm;
     JNIEnv* lJNIEnv = states.activity->env;
 
@@ -253,13 +256,6 @@ bool JoystickImpl::open(unsigned int joy_index)
 
         if (!inputDevice->supportsSource(AINPUT_SOURCE_GAMEPAD | AINPUT_SOURCE_JOYSTICK)) continue;
 
-        // Get state of nth gamepad
-        if (joy_index > 0)
-        {
-            --joy_index;
-            continue;
-        }
-
         m_identification = Joystick::Identification{
             inputDevice->getName(),
             inputDevice->getVendorId(),
@@ -278,14 +274,12 @@ bool JoystickImpl::open(unsigned int joy_index)
 ////////////////////////////////////////////////////////////
 void JoystickImpl::close()
 {
-    // To implement
 }
 
 
 ////////////////////////////////////////////////////////////
 JoystickCaps JoystickImpl::getCapabilities() const
 {
-    // To implement
     return JoystickCaps{
         Joystick::ButtonCount,
         EnumArray<Joystick::Axis, bool, Joystick::AxisCount>{ true }
@@ -307,11 +301,10 @@ JoystickState JoystickImpl::update()
     ActivityStates&       states = getActivity();
     const std::lock_guard lock(states.mutex);
 
-    // To implement
     return {
         true,
-        {},
-        states.isJoystickButtonPressed[0]
+        states.joyAxii,
+        states.isJoystickButtonPressed
     };
 }
 
