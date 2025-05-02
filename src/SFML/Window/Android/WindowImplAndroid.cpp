@@ -27,6 +27,7 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Window/Android/WindowImplAndroid.hpp>
+#include <SFML/Window/Android/JniHelper.hpp>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/WindowEnums.hpp>
 
@@ -330,19 +331,10 @@ int WindowImplAndroid::processEvent(int /* fd */, int /* events */, void* /* dat
 int WindowImplAndroid::processScrollEvent(AInputEvent* inputEvent, ActivityStates& states)
 {
     // Prepare the Java virtual machine
-    jint lResult = 0;
-
     JavaVM* lJavaVM = states.activity->vm;
     JNIEnv* lJNIEnv = states.activity->env;
-
-    JavaVMAttachArgs lJavaVMAttachArgs;
-    lJavaVMAttachArgs.version = JNI_VERSION_1_6;
-    lJavaVMAttachArgs.name    = "NativeThread";
-    lJavaVMAttachArgs.group   = nullptr;
-
-    lResult = lJavaVM->AttachCurrentThread(&lJNIEnv, &lJavaVMAttachArgs);
-
-    if (lResult == JNI_ERR)
+    auto jni = Jni::attachCurrentThread(states.activity->vm, &lJNIEnv);
+    if (!jni)
     {
         err() << "Failed to initialize JNI, couldn't get the Unicode value" << std::endl;
         return 0;
@@ -399,9 +391,6 @@ int WindowImplAndroid::processScrollEvent(AInputEvent* inputEvent, ActivityState
     event.position = Vector2i(Vector2(AMotionEvent_getX(inputEvent, 0), AMotionEvent_getY(inputEvent, 0)));
     forwardEvent(event);
 
-    // Detach this thread from the JVM
-    lJavaVM->DetachCurrentThread();
-
     return 1;
 }
 
@@ -409,10 +398,10 @@ int WindowImplAndroid::processScrollEvent(AInputEvent* inputEvent, ActivityState
 ////////////////////////////////////////////////////////////
 int WindowImplAndroid::processKeyEvent(AInputEvent* inputEvent, ActivityStates& states)
 {
-    const std::int32_t action = AKeyEvent_getAction(inputEvent);
+    const std::int32_t action  = AKeyEvent_getAction(inputEvent);
     const std::int32_t key     = AKeyEvent_getKeyCode(inputEvent);
     const std::int32_t metakey = AKeyEvent_getMetaState(inputEvent);
-    const auto sfCode = androidKeyToSF(key);
+    const auto sfCode          = androidKeyToSF(key);
 
     if (std::holds_alternative<Keyboard::Key>(sfCode))
     {
@@ -423,13 +412,11 @@ int WindowImplAndroid::processKeyEvent(AInputEvent* inputEvent, ActivityStates& 
             metakey
         );
     }
-    else
-    {
-        return processJoystickButtonEvent(
-            action,
-            std::get<Joystick::Button>(sfCode),
-            states);
-    }
+
+    return processJoystickButtonEvent(
+        action,
+        std::get<Joystick::Button>(sfCode),
+        states);
 }
 
 ////////////////////////////////////////////////////////////
@@ -735,20 +722,11 @@ char32_t WindowImplAndroid::getUnicode(AInputEvent* event)
     ActivityStates&       states = getActivity();
     const std::lock_guard lock(states.mutex);
 
-    // Initializes JNI
-    jint lResult = 0;
-
+    // Prepare the Java virtual machine
     JavaVM* lJavaVM = states.activity->vm;
     JNIEnv* lJNIEnv = states.activity->env;
-
-    JavaVMAttachArgs lJavaVMAttachArgs;
-    lJavaVMAttachArgs.version = JNI_VERSION_1_6;
-    lJavaVMAttachArgs.name    = "NativeThread";
-    lJavaVMAttachArgs.group   = nullptr;
-
-    lResult = lJavaVM->AttachCurrentThread(&lJNIEnv, &lJavaVMAttachArgs);
-
-    if (lResult == JNI_ERR)
+    auto jni = Jni::attachCurrentThread(states.activity->vm, &lJNIEnv);
+    if (!jni)
         err() << "Failed to initialize JNI, couldn't get the Unicode value" << std::endl;
 
     // Retrieve key data from the input event
@@ -785,9 +763,6 @@ char32_t WindowImplAndroid::getUnicode(AInputEvent* event)
 
     lJNIEnv->DeleteLocalRef(classKeyEvent);
     lJNIEnv->DeleteLocalRef(objectKeyEvent);
-
-    // Detach this thread from the JVM
-    lJavaVM->DetachCurrentThread();
 
     return static_cast<char32_t>(unicode);
 }

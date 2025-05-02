@@ -101,7 +101,7 @@ private:
     // Member data
     ////////////////////////////////////////////////////////////
     Joystick::Identification m_identification; ///< Joystick identification
-    int32_t m_currentDeviceIdx = -1;
+    int32_t                  m_currentDeviceIdx = -1; ///< Physical device ID
 };
 
 } // namespace sf::priv

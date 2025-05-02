@@ -35,6 +35,10 @@
 #include <optional>
 #include <string>
 
+////////////////////////////////////////////////////////////
+/// \brief C++ wrapper over Java arrays
+///
+////////////////////////////////////////////////////////////
 template<class T>
 class JniArray {
 public:
@@ -59,14 +63,13 @@ public:
             m_env->ReleaseIntArrayElements(m_array, m_data, 0);
     }
 
-public:
     T operator[](ssize_t idx)
     {
         assert(0 <= idx && idx <= m_length);
         return m_data[idx];
     }
 
-    const T operator[](ssize_t idx) const
+    T operator[](ssize_t idx) const
     {
         assert(0 <= idx && idx <= m_length);
         return m_data[idx];
@@ -86,6 +89,11 @@ private:
 
 class JniInputDeviceClass;
 
+////////////////////////////////////////////////////////////
+/// \brief C++ wrapper over JNI InputDevice instances
+///
+/// This class abstracts access to native Java object
+////////////////////////////////////////////////////////////
 class JniInputDevice
 {
 private:
@@ -136,7 +144,6 @@ public:
 private:
     std::string javaStringToStd(jstring str) const;
 
-private:
     JNIEnv* m_env;
     jobject m_inputDevice;
     jmethodID m_getNameMethod;
@@ -145,6 +152,11 @@ private:
     jmethodID m_supportsSourceMethod;
 };
 
+////////////////////////////////////////////////////////////
+/// \brief C++ wrapper over JNI InputDevice class
+///
+/// This class abstracts access to native Java class
+////////////////////////////////////////////////////////////
 class JniInputDeviceClass
 {
 private:
@@ -173,7 +185,38 @@ private:
     jmethodID m_getDeviceMethod;
 };
 
+////////////////////////////////////////////////////////////
+/// \brief RAII wrapper for attaching JavaVM thread
+///
+/// Thread is detached automatically when this class is destroyed
+////////////////////////////////////////////////////////////
 struct Jni
 {
-    static bool attachCurrentThread(JavaVM* vm, JNIEnv** env);
+private:
+    explicit Jni(JavaVM* vm)
+        : m_vm(vm)
+    {}
+
+public:
+    Jni(Jni&& other) noexcept { std::swap(m_vm, other.m_vm); };
+    Jni(const Jni&&) = delete;
+    ~Jni() { if (m_vm) m_vm->DetachCurrentThread(); }
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Binds \p env to thread called NativeThread
+    ///
+    /// The thread will be detached once the instance of the optional
+    /// is detached.
+    ///
+    /// \param vm Pointer to JavaVM instance (from ActivityStates)
+    /// \param env Pointer to pointer to JNIEnv that will be used to
+    /// invoke JNI.
+    ///
+    /// \return Returns instance of this object on success or std::nullopt on fail
+    ///
+    ////////////////////////////////////////////////////////////
+    static std::optional<Jni> attachCurrentThread(JavaVM* vm, JNIEnv** env);
+
+private:
+    JavaVM* m_vm = nullptr;
 };

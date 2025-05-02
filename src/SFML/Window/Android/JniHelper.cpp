@@ -21,7 +21,7 @@ std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
 
 std::optional<JniArray<jint>> JniInputDeviceClass::getDeviceIds()
 {
-    auto deviceIdsArray = static_cast<jintArray>(
+    auto *deviceIdsArray = static_cast<jintArray>(
         m_env->CallStaticObjectMethod(m_inputDeviceClass, m_getDeviceIdsMethod));
     if (deviceIdsArray == nullptr)
     {
@@ -69,7 +69,7 @@ std::string JniInputDevice::javaStringToStd(jstring str) const
     return result;
 }
 
-bool Jni::attachCurrentThread(JavaVM* vm, JNIEnv** env)
+std::optional<Jni> Jni::attachCurrentThread(JavaVM* vm, JNIEnv** env)
 {
     assert(vm && env);
 
@@ -81,5 +81,7 @@ bool Jni::attachCurrentThread(JavaVM* vm, JNIEnv** env)
     jint lResult = 0;
     lResult = vm->AttachCurrentThread(env, &lJavaVMAttachArgs);
 
-    return lResult != JNI_ERR;
+    if (lResult == JNI_ERR) return std::nullopt;
+
+    return Jni(vm);
 }
