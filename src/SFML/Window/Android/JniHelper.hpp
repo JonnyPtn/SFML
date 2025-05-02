@@ -84,9 +84,11 @@ private:
     T* m_data = nullptr;
 };
 
+class JniInputDeviceClass;
+
 class JniInputDevice
 {
-public:
+private:
     JniInputDevice(
         JNIEnv* env,
         jobject inputDevice,
@@ -102,21 +104,19 @@ public:
         , m_supportsSourceMethod(supportsSourceMethod)
     {}
 
+    friend class JniInputDeviceClass;
+
 public:
-    static std::optional<JniArray<jint>> getDeviceIds(JNIEnv *env, jclass inputDeviceClass);
-
-    static std::optional<JniInputDevice> getDevice(JNIEnv *env, jclass inputDeviceClass, jint idx);
-
     [[nodiscard]] unsigned getVendorId() const
     {
         return static_cast<unsigned>(
-                m_env->CallIntMethod(m_inputDevice, m_getVendorIdMethod));
+            m_env->CallIntMethod(m_inputDevice, m_getVendorIdMethod));
     }
 
     [[nodiscard]] unsigned getProductId() const
     {
         return static_cast<unsigned>(
-                m_env->CallIntMethod(m_inputDevice, m_getProductIdMethod));
+            m_env->CallIntMethod(m_inputDevice, m_getProductIdMethod));
     }
 
     [[nodiscard]] std::string getName() const
@@ -130,7 +130,7 @@ public:
     [[nodiscard]] bool supportsSource(size_t sourceFlags) const
     {
         return m_env->CallBooleanMethod(
-                m_inputDevice, m_supportsSourceMethod, jint(sourceFlags));
+            m_inputDevice, m_supportsSourceMethod, jint(sourceFlags));
     }
 
 private:
@@ -143,4 +143,37 @@ private:
     jmethodID m_getVendorIdMethod;
     jmethodID m_getProductIdMethod;
     jmethodID m_supportsSourceMethod;
+};
+
+class JniInputDeviceClass
+{
+private:
+    JniInputDeviceClass(
+        JNIEnv* env,
+        jclass inputDeviceClass,
+        jmethodID getDeviceIdsMethod,
+        jmethodID getDeviceMethod)
+        : m_env(env)
+        , m_inputDeviceClass(inputDeviceClass)
+        , m_getDeviceIdsMethod(getDeviceIdsMethod)
+        , m_getDeviceMethod(getDeviceMethod)
+    {}
+
+public:
+    static std::optional<JniInputDeviceClass> findClass(JNIEnv* env);
+
+    std::optional<JniArray<jint>> getDeviceIds();
+
+    std::optional<JniInputDevice> getDevice(jint idx);
+
+private:
+    JNIEnv* m_env;
+    jclass m_inputDeviceClass;
+    jmethodID m_getDeviceIdsMethod;
+    jmethodID m_getDeviceMethod;
+};
+
+struct Jni
+{
+    static bool attachCurrentThread(JavaVM* vm, JNIEnv** env);
 };

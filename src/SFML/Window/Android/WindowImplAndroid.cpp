@@ -520,14 +520,29 @@ int WindowImplAndroid::processMotionEvent(AInputEvent* inputEvent, ActivityState
         }
         else if (static_cast<std::uint32_t>(device) & AINPUT_SOURCE_JOYSTICK)
         {
-            states.joyAxii[Joystick::Axis::X] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_X, p);
-            states.joyAxii[Joystick::Axis::Y] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Y, p);
-            states.joyAxii[Joystick::Axis::Z] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Z, p);
-            states.joyAxii[Joystick::Axis::R] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RTRIGGER, p);
-            states.joyAxii[Joystick::Axis::U] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_LTRIGGER, p);
-            states.joyAxii[Joystick::Axis::V] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RZ, p);
-            states.joyAxii[Joystick::Axis::PovX] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_X, p);
-            states.joyAxii[Joystick::Axis::PovY] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_Y, p);
+            /* NOTE:
+            I haven't found a reasonable mapping between input event and device ID which caused it.
+            Furthermore, it seems like all axii changes coming from the single gamepad are contained
+            in the single input event, meaning that I can poll values for all axii in this single
+            loop iteration and it'll work.
+
+            Also, whoever coded Windows gamepad support had normalized axii values to <-100, 100>
+            instead of sane interval of <-1, 1>.
+
+            Also also, a same gamepad connected via same method can report different axii
+            on Windows and Android. Xbox One for example will report triggers as negative/positive
+            values on the single axis, while Android reports them on two separate axii.
+            */
+
+            const float factor = 100.f; // Windows code normalizes axis to range <-100, 100> instead of sane <-1, 1>
+            states.joyAxii[Joystick::Axis::X] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_X, p) * factor;
+            states.joyAxii[Joystick::Axis::Y] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Y, p) * factor;
+            states.joyAxii[Joystick::Axis::Z] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Z, p) * factor;
+            states.joyAxii[Joystick::Axis::R] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RZ, p) * factor;
+            states.joyAxii[Joystick::Axis::U] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_LTRIGGER, p) * factor;
+            states.joyAxii[Joystick::Axis::V] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RTRIGGER, p) * factor;
+            states.joyAxii[Joystick::Axis::PovX] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_X, p) * factor;
+            states.joyAxii[Joystick::Axis::PovY] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_Y, p) * factor;
         }
     }
 

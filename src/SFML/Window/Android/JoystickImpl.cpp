@@ -50,9 +50,7 @@ void JoystickImpl::cleanup()
 bool JoystickImpl::isConnected(unsigned int index)
 {
     // This is called as a prefilter before open, but it
-    // would just duplicate the logic of open. Furthermore
-    // how many physical devices are you going to attach to
-    // an android device?
+    // would just duplicate the logic of open.
     return index == 0;
 }
 
@@ -66,33 +64,22 @@ bool JoystickImpl::open(unsigned int joyIndex)
     ActivityStates&       states = getActivity();
     const std::lock_guard lock(states.mutex);
 
-    // Initializes JNI
-    jint lResult = 0;
-
-    JavaVM* lJavaVM = states.activity->vm;
-    JNIEnv* lJNIEnv = states.activity->env;
-
-    JavaVMAttachArgs lJavaVMAttachArgs;
-    lJavaVMAttachArgs.version = JNI_VERSION_1_6;
-    lJavaVMAttachArgs.name    = "NativeThread";
-    lJavaVMAttachArgs.group   = nullptr;
-
-    lResult = lJavaVM->AttachCurrentThread(&lJNIEnv, &lJavaVMAttachArgs);
-
-    if (lResult == JNI_ERR)
+    JNIEnv* env = states.activity->env;
+    if (!Jni::attachCurrentThread(states.activity->vm, &env))
+    {
         err() << "Failed to initialize JNI" << std::endl;
-
-    jclass inputDeviceClass = lJNIEnv->FindClass("android/view/InputDevice");
-    if (inputDeviceClass == nullptr) {
-        err() << "Failed to find InputDevice class." << std::endl;
         return false;
     }
 
-    auto deviceIds = JniInputDevice::getDeviceIds(lJNIEnv, inputDeviceClass);
+    auto inputDeviceClass = JniInputDeviceClass::findClass(env);
+    if (!inputDeviceClass) return false;
+
+    auto deviceIds = inputDeviceClass->getDeviceIds();
     if (!deviceIds) return false;
 
     for (jsize i = 0; i < deviceIds->getLength(); ++i) {
-        auto inputDevice = JniInputDevice::getDevice(lJNIEnv, inputDeviceClass, (*deviceIds)[i]);
+        const auto deviceId = (*deviceIds)[i];
+        auto inputDevice = inputDeviceClass->getDevice(deviceId);
         if (!inputDevice) continue;
 
         if (!inputDevice->supportsSource(AINPUT_SOURCE_GAMEPAD | AINPUT_SOURCE_JOYSTICK)) continue;
@@ -103,7 +90,7 @@ bool JoystickImpl::open(unsigned int joyIndex)
             inputDevice->getProductId(),
         };
 
-        m_currentDeviceIdx = int(i);
+        m_currentDeviceIdx = deviceId;
 
         return true;
     }
@@ -142,8 +129,18 @@ JoystickState JoystickImpl::update()
     ActivityStates&       states = getActivity();
     const std::lock_guard lock(states.mutex);
 
+    JNIEnv* env = states.activity->env;
+    if (!Jni::attachCurrentThread(states.activity->vm, &env))
+    {
+        err() << "Failed to initialize JNI" << std::endl;
+        return { false };
+    }
+
+    auto inputDeviceClass = JniInputDeviceClass::findClass(env);
+    if (!inputDeviceClass) return { false };
+
     return {
-        true,
+        inputDeviceClass->getDevice(m_currentDeviceIdx).has_value(),
         states.joyAxii,
         states.isJoystickButtonPressed
     };

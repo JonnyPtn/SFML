@@ -2,41 +2,50 @@
 #include <SFML/System/Err.hpp>
 #include <ostream>
 
-std::optional<JniArray<jint>> JniInputDevice::getDeviceIds(JNIEnv *env, jclass inputDeviceClass)
+std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
 {
+    assert(env);
+    jclass inputDeviceClass = env->FindClass("android/view/InputDevice");
+    if (inputDeviceClass == nullptr) return std::nullopt;
+
     jmethodID getDeviceIdsMethod = env->GetStaticMethodID(inputDeviceClass, "getDeviceIds", "()[I");
-    if (!getDeviceIdsMethod)
+    jmethodID getDeviceMethod = env->GetStaticMethodID(inputDeviceClass, "getDevice", "(I)Landroid/view/InputDevice;");
+    if (!getDeviceIdsMethod || !getDeviceMethod)
     {
-        sf::err() << "Could not locate InputDevice.getDeviceIds method" << std::endl;
+        sf::err() << "Could not locate required InputDevice methods" << std::endl;
         return std::nullopt;
     }
 
+    return JniInputDeviceClass(env, inputDeviceClass, getDeviceIdsMethod, getDeviceMethod);
+}
+
+std::optional<JniArray<jint>> JniInputDeviceClass::getDeviceIds()
+{
     auto deviceIdsArray = static_cast<jintArray>(
-            env->CallStaticObjectMethod(inputDeviceClass, getDeviceIdsMethod));
+        m_env->CallStaticObjectMethod(m_inputDeviceClass, m_getDeviceIdsMethod));
     if (deviceIdsArray == nullptr)
     {
         sf::err() << "No input devices found." << std::endl;
         return std::nullopt;
     }
 
-    return JniArray<jint>(env, deviceIdsArray);
+    return JniArray<jint>(m_env, deviceIdsArray);
 }
 
-std::optional<JniInputDevice> JniInputDevice::getDevice(JNIEnv *env, jclass inputDeviceClass, jint idx)
+std::optional<JniInputDevice> JniInputDeviceClass::getDevice(jint idx)
 {
-    jmethodID getDeviceMethod = env->GetStaticMethodID(inputDeviceClass, "getDevice", "(I)Landroid/view/InputDevice;");
-    jmethodID getNameMethod = env->GetMethodID(inputDeviceClass, "getName", "()Ljava/lang/String;");
-    jmethodID getVendorIdMethod = env->GetMethodID(inputDeviceClass, "getVendorId", "()I");
-    jmethodID getProductIdMethod = env->GetMethodID(inputDeviceClass, "getProductId", "()I");
-    jmethodID supportsSourceMethod = env->GetMethodID(inputDeviceClass, "supportsSource", "(I)Z");
+    jmethodID getNameMethod = m_env->GetMethodID(m_inputDeviceClass, "getName", "()Ljava/lang/String;");
+    jmethodID getVendorIdMethod = m_env->GetMethodID(m_inputDeviceClass, "getVendorId", "()I");
+    jmethodID getProductIdMethod = m_env->GetMethodID(m_inputDeviceClass, "getProductId", "()I");
+    jmethodID supportsSourceMethod = m_env->GetMethodID(m_inputDeviceClass, "supportsSource", "(I)Z");
 
-    if (!getDeviceMethod || !getNameMethod || !getVendorIdMethod || !getProductIdMethod || !supportsSourceMethod)
+    if (!getNameMethod || !getVendorIdMethod || !getProductIdMethod || !supportsSourceMethod)
     {
         sf::err() << "Could not locate required InputDevice methods" << std::endl;
         return std::nullopt;
     }
 
-    jobject inputDevice = env->CallStaticObjectMethod(inputDeviceClass, getDeviceMethod, idx);
+    jobject inputDevice = m_env->CallStaticObjectMethod(m_inputDeviceClass, m_getDeviceMethod, idx);
     if (!inputDevice)
     {
         // Can happen normally, no log needed
@@ -44,7 +53,7 @@ std::optional<JniInputDevice> JniInputDevice::getDevice(JNIEnv *env, jclass inpu
     }
 
     return JniInputDevice(
-            env,
+            m_env,
             inputDevice,
             getNameMethod,
             getVendorIdMethod,
@@ -58,4 +67,19 @@ std::string JniInputDevice::javaStringToStd(jstring str) const
     std::string result(utfChars);
     m_env->ReleaseStringUTFChars(str, utfChars);
     return result;
+}
+
+bool Jni::attachCurrentThread(JavaVM* vm, JNIEnv** env)
+{
+    assert(vm && env);
+
+    JavaVMAttachArgs lJavaVMAttachArgs;
+    lJavaVMAttachArgs.version = JNI_VERSION_1_6;
+    lJavaVMAttachArgs.name    = "NativeThread";
+    lJavaVMAttachArgs.group   = nullptr;
+
+    jint lResult = 0;
+    lResult = vm->AttachCurrentThread(env, &lJavaVMAttachArgs);
+
+    return lResult != JNI_ERR;
 }
