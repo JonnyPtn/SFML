@@ -40,8 +40,9 @@
 /// \brief C++ wrapper over Java arrays
 ///
 ////////////////////////////////////////////////////////////
-template<class T>
-class JniArray {
+template <class T>
+class JniArray
+{
 public:
     JniArray(JNIEnv* env, jintArray array) :
     m_env(env),
@@ -83,10 +84,10 @@ public:
     }
 
 private:
-    JNIEnv*   m_env = nullptr;
-    jintArray m_array = nullptr;
+    JNIEnv*   m_env    = nullptr;
+    jintArray m_array  = nullptr;
     ssize_t   m_length = 0;
-    T*        m_data = nullptr;
+    T*        m_data   = nullptr;
 };
 
 class JniInputDeviceClass;
@@ -99,8 +100,8 @@ class JniInputDeviceClass;
 class JniInputDevice
 {
 private:
-    JniInputDevice(JNIEnv* env,
-                   jobject inputDevice,
+    JniInputDevice(JNIEnv*   env,
+                   jobject   inputDevice,
                    jmethodID getNameMethod,
                    jmethodID getVendorIdMethod,
                    jmethodID getProductIdMethod,
@@ -156,10 +157,7 @@ private:
 class JniInputDeviceClass
 {
 private:
-    JniInputDeviceClass(JNIEnv* env,
-                        jclass inputDeviceClass,
-                        jmethodID getDeviceIdsMethod,
-                        jmethodID getDeviceMethod) :
+    JniInputDeviceClass(JNIEnv* env, jclass inputDeviceClass, jmethodID getDeviceIdsMethod, jmethodID getDeviceMethod) :
     m_env(env),
     m_inputDeviceClass(inputDeviceClass),
     m_getDeviceIdsMethod(getDeviceIdsMethod),
@@ -189,15 +187,21 @@ private:
 struct Jni
 {
 private:
-    explicit Jni(JavaVM* vm) :
-    m_vm(vm)
+    explicit Jni(JavaVM* vm) : m_vm(vm)
     {
     }
 
 public:
-    Jni(Jni&& other) noexcept { std::swap(m_vm, other.m_vm); };
+    Jni(Jni&& other) noexcept
+    {
+        std::swap(m_vm, other.m_vm);
+    }
     Jni(const Jni&&) = delete;
-    ~Jni() { if (m_vm) m_vm->DetachCurrentThread(); }
+    ~Jni()
+    {
+        if (m_vm)
+            m_vm->DetachCurrentThread();
+    }
 
     ////////////////////////////////////////////////////////////
     /// \brief Binds \p env to thread called NativeThread

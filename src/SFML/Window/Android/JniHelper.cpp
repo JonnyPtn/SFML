@@ -8,10 +8,11 @@ std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
 {
     assert(env);
     jclass inputDeviceClass = env->FindClass("android/view/InputDevice");
-    if (inputDeviceClass == nullptr) return std::nullopt;
+    if (inputDeviceClass == nullptr)
+        return std::nullopt;
 
     jmethodID getDeviceIdsMethod = env->GetStaticMethodID(inputDeviceClass, "getDeviceIds", "()[I");
-    jmethodID getDeviceMethod    = env->GetStaticMethodID(inputDeviceClass, "getDevice", "(I)Landroid/view/InputDevice;");
+    jmethodID getDeviceMethod = env->GetStaticMethodID(inputDeviceClass, "getDevice", "(I)Landroid/view/InputDevice;");
     if (!getDeviceIdsMethod || !getDeviceMethod)
     {
         sf::err() << "Could not locate required InputDevice methods" << std::endl;
@@ -23,7 +24,7 @@ std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
 
 std::optional<JniArray<jint>> JniInputDeviceClass::getDeviceIds()
 {
-    auto *deviceIdsArray = static_cast<jintArray>(m_env->CallStaticObjectMethod(m_inputDeviceClass, m_getDeviceIdsMethod));
+    auto* deviceIdsArray = static_cast<jintArray>(m_env->CallStaticObjectMethod(m_inputDeviceClass, m_getDeviceIdsMethod));
     if (deviceIdsArray == nullptr)
     {
         sf::err() << "No input devices found." << std::endl;
@@ -74,7 +75,7 @@ std::optional<Jni> Jni::attachCurrentThread(JavaVM* vm, JNIEnv** env)
     lJavaVMAttachArgs.group   = nullptr;
 
     jint lResult = 0;
-    lResult = vm->AttachCurrentThread(env, &lJavaVMAttachArgs);
+    lResult      = vm->AttachCurrentThread(env, &lJavaVMAttachArgs);
 
     if (lResult == JNI_ERR)
         return std::nullopt;

@@ -27,9 +27,9 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Window/Android/JoystickButton.hpp>
 #include <SFML/Window/EglContext.hpp>
 #include <SFML/Window/Event.hpp>
-#include <SFML/Window/Android/JoystickButton.hpp>
 
 #include <SFML/System/EnumArray.hpp>
 
@@ -81,7 +81,7 @@ struct ActivityStates
     EnumArray<Mouse::Button, bool, Mouse::ButtonCount> isButtonPressed{};
 
     EnumArray<Joystick::Axis, float, Joystick::AxisCount> joyAxii{};
-    std::array<bool, Joystick::ButtonCount> isJoystickButtonPressed{};
+    std::array<bool, Joystick::ButtonCount>               isJoystickButtonPressed{};
 
     bool mainOver{};
 

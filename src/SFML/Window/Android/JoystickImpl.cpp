@@ -27,8 +27,9 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/Window/Android/JniHelper.hpp>
 #include <SFML/Window/JoystickImpl.hpp>
-#include <SFML/System/Err.hpp>
+
 #include <SFML/System/Android/Activity.hpp>
+#include <SFML/System/Err.hpp>
 
 namespace sf::priv
 {
@@ -66,7 +67,7 @@ bool JoystickImpl::open(unsigned int joyIndex)
     const std::lock_guard lock(states.mutex);
 
     JNIEnv* env = states.activity->env;
-    auto jni = Jni::attachCurrentThread(states.activity->vm, &env);
+    auto    jni = Jni::attachCurrentThread(states.activity->vm, &env);
     if (!jni)
     {
         err() << "Failed to initialize JNI" << std::endl;
@@ -83,8 +84,8 @@ bool JoystickImpl::open(unsigned int joyIndex)
 
     for (jsize i = 0; i < deviceIds->getLength(); ++i)
     {
-        const auto deviceId = (*deviceIds)[i];
-        auto inputDevice = inputDeviceClass->getDevice(deviceId);
+        const auto deviceId    = (*deviceIds)[i];
+        auto       inputDevice = inputDeviceClass->getDevice(deviceId);
         if (!inputDevice)
             continue;
 
@@ -115,7 +116,7 @@ void JoystickImpl::close()
 ////////////////////////////////////////////////////////////
 JoystickCaps JoystickImpl::getCapabilities() const
 {
-    return JoystickCaps{ Joystick::ButtonCount, EnumArray<Joystick::Axis, bool, Joystick::AxisCount>{ true } };
+    return JoystickCaps{Joystick::ButtonCount, EnumArray<Joystick::Axis, bool, Joystick::AxisCount>{true}};
 }
 
 
@@ -127,30 +128,25 @@ Joystick::Identification JoystickImpl::getIdentification() const
 
 
 ////////////////////////////////////////////////////////////
-JoystickState JoystickImpl::update()
+JoystickState JoystickImpl::update() const
 {
     // Retrieve activity states
     ActivityStates&       states = getActivity();
     const std::lock_guard lock(states.mutex);
 
     JNIEnv* env = states.activity->env;
-    auto jni = Jni::attachCurrentThread(states.activity->vm, &env);
+    auto    jni = Jni::attachCurrentThread(states.activity->vm, &env);
     if (!jni)
     {
         err() << "Failed to initialize JNI" << std::endl;
-        return { false };
+        return {false};
     }
 
     auto inputDeviceClass = JniInputDeviceClass::findClass(env);
     if (!inputDeviceClass)
-        return { false };
+        return {false};
 
-    return
-    {
-        inputDeviceClass->getDevice(m_currentDeviceIdx).has_value(),
-        states.joyAxii,
-        states.isJoystickButtonPressed
-    };
+    return {inputDeviceClass->getDevice(m_currentDeviceIdx).has_value(), states.joyAxii, states.isJoystickButtonPressed};
 }
 
 } // namespace sf::priv

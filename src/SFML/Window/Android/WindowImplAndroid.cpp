@@ -26,8 +26,8 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#include <SFML/Window/Android/WindowImplAndroid.hpp>
 #include <SFML/Window/Android/JniHelper.hpp>
+#include <SFML/Window/Android/WindowImplAndroid.hpp>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/WindowEnums.hpp>
 
@@ -331,9 +331,8 @@ int WindowImplAndroid::processEvent(int /* fd */, int /* events */, void* /* dat
 int WindowImplAndroid::processScrollEvent(AInputEvent* inputEvent, ActivityStates& states)
 {
     // Prepare the Java virtual machine
-    JavaVM* lJavaVM = states.activity->vm;
     JNIEnv* lJNIEnv = states.activity->env;
-    auto jni = Jni::attachCurrentThread(states.activity->vm, &lJNIEnv);
+    auto    jni     = Jni::attachCurrentThread(states.activity->vm, &lJNIEnv);
     if (!jni)
     {
         err() << "Failed to initialize JNI, couldn't get the Unicode value" << std::endl;
@@ -401,7 +400,7 @@ int WindowImplAndroid::processKeyEvent(AInputEvent* inputEvent, ActivityStates& 
     const std::int32_t action  = AKeyEvent_getAction(inputEvent);
     const std::int32_t key     = AKeyEvent_getKeyCode(inputEvent);
     const std::int32_t metakey = AKeyEvent_getMetaState(inputEvent);
-    const auto sfCode          = androidKeyToSF(key);
+    const auto         sfCode  = androidKeyToSF(key);
 
     if (std::holds_alternative<Keyboard::Key>(sfCode))
     {
@@ -714,9 +713,8 @@ char32_t WindowImplAndroid::getUnicode(AInputEvent* event)
     const std::lock_guard lock(states.mutex);
 
     // Prepare the Java virtual machine
-    JavaVM* lJavaVM = states.activity->vm;
     JNIEnv* lJNIEnv = states.activity->env;
-    auto jni = Jni::attachCurrentThread(states.activity->vm, &lJNIEnv);
+    auto    jni     = Jni::attachCurrentThread(states.activity->vm, &lJNIEnv);
     if (!jni)
         err() << "Failed to initialize JNI, couldn't get the Unicode value" << std::endl;
 
