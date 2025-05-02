@@ -25,10 +25,10 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Window/Android/JniHelper.hpp>
 #include <SFML/Window/JoystickImpl.hpp>
 #include <SFML/System/Err.hpp>
 #include <SFML/System/Android/Activity.hpp>
-#include <SFML/Window/Android/JniHelper.hpp>
 
 namespace sf::priv
 {
@@ -58,7 +58,8 @@ bool JoystickImpl::isConnected(unsigned int index)
 ////////////////////////////////////////////////////////////
 bool JoystickImpl::open(unsigned int joyIndex)
 {
-    if (joyIndex != 0) return false;
+    if (joyIndex != 0)
+        return false;
 
     // Retrieve activity states
     ActivityStates&       states = getActivity();
@@ -73,18 +74,22 @@ bool JoystickImpl::open(unsigned int joyIndex)
     }
 
     auto inputDeviceClass = JniInputDeviceClass::findClass(env);
-    if (!inputDeviceClass) return false;
+    if (!inputDeviceClass)
+        return false;
 
     auto deviceIds = inputDeviceClass->getDeviceIds();
-    if (!deviceIds) return false;
+    if (!deviceIds)
+        return false;
 
     for (jsize i = 0; i < deviceIds->getLength(); ++i)
     {
         const auto deviceId = (*deviceIds)[i];
         auto inputDevice = inputDeviceClass->getDevice(deviceId);
-        if (!inputDevice) continue;
+        if (!inputDevice)
+            continue;
 
-        if (!inputDevice->supportsSource(AINPUT_SOURCE_GAMEPAD | AINPUT_SOURCE_JOYSTICK)) continue;
+        if (!inputDevice->supportsSource(AINPUT_SOURCE_GAMEPAD | AINPUT_SOURCE_JOYSTICK))
+            continue;
 
         m_identification = Joystick::Identification{
             inputDevice->getName(),
@@ -137,7 +142,8 @@ JoystickState JoystickImpl::update()
     }
 
     auto inputDeviceClass = JniInputDeviceClass::findClass(env);
-    if (!inputDeviceClass) return { false };
+    if (!inputDeviceClass)
+        return { false };
 
     return
     {

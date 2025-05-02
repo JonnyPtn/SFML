@@ -31,9 +31,10 @@
 #include <android/native_activity.h>
 
 #include <algorithm>
-#include <cassert>
 #include <optional>
 #include <string>
+
+#include <cassert>
 
 ////////////////////////////////////////////////////////////
 /// \brief C++ wrapper over Java arrays
@@ -42,12 +43,13 @@
 template<class T>
 class JniArray {
 public:
-    JniArray(JNIEnv* env, jintArray array)
-        : m_env(env)
-        , m_array(array)
-        , m_length(env->GetArrayLength(array))
-        , m_data(env->GetIntArrayElements(array, nullptr))
-    {}
+    JniArray(JNIEnv* env, jintArray array) :
+    m_env(env),
+    m_array(array),
+    m_length(env->GetArrayLength(array)),
+    m_data(env->GetIntArrayElements(array, nullptr))
+    {
+    }
 
     JniArray(JniArray&& other) noexcept
     {
@@ -81,10 +83,10 @@ public:
     }
 
 private:
-    JNIEnv * m_env = nullptr;
+    JNIEnv*   m_env = nullptr;
     jintArray m_array = nullptr;
-    ssize_t m_length = 0;
-    T* m_data = nullptr;
+    ssize_t   m_length = 0;
+    T*        m_data = nullptr;
 };
 
 class JniInputDeviceClass;
@@ -97,55 +99,49 @@ class JniInputDeviceClass;
 class JniInputDevice
 {
 private:
-    JniInputDevice(
-        JNIEnv* env,
-        jobject inputDevice,
-        jmethodID getNameMethod,
-        jmethodID getVendorIdMethod,
-        jmethodID getProductIdMethod,
-        jmethodID supportsSourceMethod)
-        : m_env(env)
-        , m_inputDevice(inputDevice)
-        , m_getNameMethod(getNameMethod)
-        , m_getVendorIdMethod(getVendorIdMethod)
-        , m_getProductIdMethod(getProductIdMethod)
-        , m_supportsSourceMethod(supportsSourceMethod)
-    {}
+    JniInputDevice(JNIEnv* env,
+                   jobject inputDevice,
+                   jmethodID getNameMethod,
+                   jmethodID getVendorIdMethod,
+                   jmethodID getProductIdMethod,
+                   jmethodID supportsSourceMethod) :
+    m_env(env),
+    m_inputDevice(inputDevice),
+    m_getNameMethod(getNameMethod),
+    m_getVendorIdMethod(getVendorIdMethod),
+    m_getProductIdMethod(getProductIdMethod),
+    m_supportsSourceMethod(supportsSourceMethod)
+    {
+    }
 
     friend class JniInputDeviceClass;
 
 public:
     [[nodiscard]] unsigned getVendorId() const
     {
-        return static_cast<unsigned>(
-            m_env->CallIntMethod(m_inputDevice, m_getVendorIdMethod));
+        return static_cast<unsigned>(m_env->CallIntMethod(m_inputDevice, m_getVendorIdMethod));
     }
 
     [[nodiscard]] unsigned getProductId() const
     {
-        return static_cast<unsigned>(
-            m_env->CallIntMethod(m_inputDevice, m_getProductIdMethod));
+        return static_cast<unsigned>(m_env->CallIntMethod(m_inputDevice, m_getProductIdMethod));
     }
 
     [[nodiscard]] std::string getName() const
     {
-        return javaStringToStd(
-            static_cast<jstring>(m_env->CallObjectMethod(
-                m_inputDevice,
-                m_getNameMethod)));
+        return javaStringToStd(static_cast<jstring>(m_env->CallObjectMethod(m_inputDevice, m_getNameMethod)));
     }
 
     [[nodiscard]] bool supportsSource(size_t sourceFlags) const
     {
-        return m_env->CallBooleanMethod(
-            m_inputDevice, m_supportsSourceMethod, jint(sourceFlags));
+        return m_env->CallBooleanMethod(m_inputDevice, m_supportsSourceMethod, jint(sourceFlags));
     }
 
 private:
     std::string javaStringToStd(jstring str) const;
 
-    JNIEnv* m_env;
-    jobject m_inputDevice;
+    JNIEnv*   m_env;
+    jobject   m_inputDevice;
     jmethodID m_getNameMethod;
     jmethodID m_getVendorIdMethod;
     jmethodID m_getProductIdMethod;
@@ -160,16 +156,16 @@ private:
 class JniInputDeviceClass
 {
 private:
-    JniInputDeviceClass(
-        JNIEnv* env,
-        jclass inputDeviceClass,
-        jmethodID getDeviceIdsMethod,
-        jmethodID getDeviceMethod)
-        : m_env(env)
-        , m_inputDeviceClass(inputDeviceClass)
-        , m_getDeviceIdsMethod(getDeviceIdsMethod)
-        , m_getDeviceMethod(getDeviceMethod)
-    {}
+    JniInputDeviceClass(JNIEnv* env,
+                        jclass inputDeviceClass,
+                        jmethodID getDeviceIdsMethod,
+                        jmethodID getDeviceMethod) :
+    m_env(env),
+    m_inputDeviceClass(inputDeviceClass),
+    m_getDeviceIdsMethod(getDeviceIdsMethod),
+    m_getDeviceMethod(getDeviceMethod)
+    {
+    }
 
 public:
     static std::optional<JniInputDeviceClass> findClass(JNIEnv* env);
@@ -179,8 +175,8 @@ public:
     std::optional<JniInputDevice> getDevice(jint idx);
 
 private:
-    JNIEnv* m_env;
-    jclass m_inputDeviceClass;
+    JNIEnv*   m_env;
+    jclass    m_inputDeviceClass;
     jmethodID m_getDeviceIdsMethod;
     jmethodID m_getDeviceMethod;
 };
@@ -193,9 +189,10 @@ private:
 struct Jni
 {
 private:
-    explicit Jni(JavaVM* vm)
-        : m_vm(vm)
-    {}
+    explicit Jni(JavaVM* vm) :
+    m_vm(vm)
+    {
+    }
 
 public:
     Jni(Jni&& other) noexcept { std::swap(m_vm, other.m_vm); };

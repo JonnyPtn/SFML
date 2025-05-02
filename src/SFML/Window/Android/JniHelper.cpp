@@ -1,5 +1,7 @@
 #include <SFML/Window/Android/JniHelper.hpp>
+
 #include <SFML/System/Err.hpp>
+
 #include <ostream>
 
 std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
@@ -9,7 +11,7 @@ std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
     if (inputDeviceClass == nullptr) return std::nullopt;
 
     jmethodID getDeviceIdsMethod = env->GetStaticMethodID(inputDeviceClass, "getDeviceIds", "()[I");
-    jmethodID getDeviceMethod = env->GetStaticMethodID(inputDeviceClass, "getDevice", "(I)Landroid/view/InputDevice;");
+    jmethodID getDeviceMethod    = env->GetStaticMethodID(inputDeviceClass, "getDevice", "(I)Landroid/view/InputDevice;");
     if (!getDeviceIdsMethod || !getDeviceMethod)
     {
         sf::err() << "Could not locate required InputDevice methods" << std::endl;
@@ -21,8 +23,7 @@ std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
 
 std::optional<JniArray<jint>> JniInputDeviceClass::getDeviceIds()
 {
-    auto *deviceIdsArray = static_cast<jintArray>(
-        m_env->CallStaticObjectMethod(m_inputDeviceClass, m_getDeviceIdsMethod));
+    auto *deviceIdsArray = static_cast<jintArray>(m_env->CallStaticObjectMethod(m_inputDeviceClass, m_getDeviceIdsMethod));
     if (deviceIdsArray == nullptr)
     {
         sf::err() << "No input devices found." << std::endl;
@@ -34,9 +35,9 @@ std::optional<JniArray<jint>> JniInputDeviceClass::getDeviceIds()
 
 std::optional<JniInputDevice> JniInputDeviceClass::getDevice(jint idx)
 {
-    jmethodID getNameMethod = m_env->GetMethodID(m_inputDeviceClass, "getName", "()Ljava/lang/String;");
-    jmethodID getVendorIdMethod = m_env->GetMethodID(m_inputDeviceClass, "getVendorId", "()I");
-    jmethodID getProductIdMethod = m_env->GetMethodID(m_inputDeviceClass, "getProductId", "()I");
+    jmethodID getNameMethod        = m_env->GetMethodID(m_inputDeviceClass, "getName", "()Ljava/lang/String;");
+    jmethodID getVendorIdMethod    = m_env->GetMethodID(m_inputDeviceClass, "getVendorId", "()I");
+    jmethodID getProductIdMethod   = m_env->GetMethodID(m_inputDeviceClass, "getProductId", "()I");
     jmethodID supportsSourceMethod = m_env->GetMethodID(m_inputDeviceClass, "supportsSource", "(I)Z");
 
     if (!getNameMethod || !getVendorIdMethod || !getProductIdMethod || !supportsSourceMethod)
@@ -52,13 +53,7 @@ std::optional<JniInputDevice> JniInputDeviceClass::getDevice(jint idx)
         return std::nullopt;
     }
 
-    return JniInputDevice(
-            m_env,
-            inputDevice,
-            getNameMethod,
-            getVendorIdMethod,
-            getProductIdMethod,
-            supportsSourceMethod);
+    return JniInputDevice(m_env, inputDevice, getNameMethod, getVendorIdMethod, getProductIdMethod, supportsSourceMethod);
 }
 
 std::string JniInputDevice::javaStringToStd(jstring str) const
@@ -81,7 +76,8 @@ std::optional<Jni> Jni::attachCurrentThread(JavaVM* vm, JNIEnv** env)
     jint lResult = 0;
     lResult = vm->AttachCurrentThread(env, &lJavaVMAttachArgs);
 
-    if (lResult == JNI_ERR) return std::nullopt;
+    if (lResult == JNI_ERR)
+        return std::nullopt;
 
     return Jni(vm);
 }

@@ -27,9 +27,9 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Window/Android/JoystickButton.hpp>
 #include <SFML/Window/EglContext.hpp>
 #include <SFML/Window/Event.hpp>
-#include <SFML/Window/Android/JoystickButton.hpp>
 #include <SFML/Window/WindowImpl.hpp>
 
 #include <SFML/System/Android/Activity.hpp>

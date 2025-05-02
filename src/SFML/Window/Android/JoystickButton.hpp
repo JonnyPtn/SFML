@@ -53,4 +53,4 @@ enum class Button : size_t
     DpadRight,
     DpadCenter,
 };
-}
+} // namespace sf::Joystick
