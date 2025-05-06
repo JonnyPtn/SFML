@@ -28,10 +28,13 @@
 // Headers
 ////////////////////////////////////////////////////////////
 
+#include <SFML/System/Err.hpp>
+
 #include <android/native_activity.h>
 
 #include <algorithm>
 #include <optional>
+#include <ostream>
 #include <string>
 
 #include <cassert>
@@ -66,12 +69,6 @@ public:
             m_env->ReleaseIntArrayElements(m_array, m_data, 0);
     }
 
-    T operator[](ssize_t idx)
-    {
-        assert(0 <= idx && idx <= m_length);
-        return m_data[idx];
-    }
-
     T operator[](ssize_t idx) const
     {
         assert(0 <= idx && idx <= m_length);
@@ -90,6 +87,125 @@ private:
     T*        m_data   = nullptr;
 };
 
+class JniListClass;
+
+template<class T, class TClass>
+class JniList
+{
+private:
+    JniList(JNIEnv* env, jobject list, jmethodID getMethod, jmethodID sizeMethod) :
+    m_env(env),
+    m_list(list),
+    m_getMethod(getMethod),
+    m_sizeMethod(sizeMethod)
+    {
+    }
+
+    friend class JniListClass;
+
+public:
+    [[nodiscard]] std::optional<T> operator[](ssize_t idx) const
+    {
+        auto cls = TClass::findClass(m_env);
+        if (!cls)
+            return std::nullopt;
+
+        jobject motionRange = m_env->CallObjectMethod(m_list, m_getMethod, idx);
+        if (!motionRange)
+            return std::nullopt;
+
+        return cls->makeFromJava(motionRange);
+    }
+
+    [[nodiscard]] ssize_t getSize() const
+    {
+        return m_env->CallIntMethod(m_list, m_sizeMethod);
+    }
+
+private:
+    JNIEnv*   m_env;
+    jobject   m_list;
+    jmethodID m_getMethod;
+    jmethodID m_sizeMethod;
+};
+
+class JniListClass
+{
+private:
+    JniListClass(JNIEnv* env, jclass listClass) :
+    m_env(env),
+    m_listClass(listClass)
+    {
+    }
+
+public:
+    [[nodiscard]] static std::optional<JniListClass> findClass(JNIEnv* env);
+
+    template<class T, class TClass>
+    [[nodiscard]] std::optional<JniList<T, TClass>> makeFromJava(jobject list)
+    {
+        jmethodID getMethod  = m_env->GetMethodID(m_listClass, "get", "(I)Ljava/lang/Object;");
+        jmethodID sizeMethod = m_env->GetMethodID(m_listClass, "size", "()I");
+
+        if (!getMethod || !sizeMethod)
+        {
+            sf::err() << "Could not locate required List<InputDevice.MotionRange> methods" << std::endl;
+            return std::nullopt;
+        }
+
+        return JniList<T, TClass>(m_env, list, getMethod, sizeMethod);
+    }
+
+private:
+    JNIEnv* m_env;
+    jclass  m_listClass;
+};
+
+class JniMotionRangeClass;
+
+class JniMotionRange
+{
+private:
+    JniMotionRange(JNIEnv* env, jobject motionRange, jmethodID getAxisMethod) :
+    m_env(env),
+    m_motionRange(motionRange),
+    m_getAxisMethod(getAxisMethod)
+    {
+    }
+
+    friend class JniMotionRangeClass;
+
+public:
+    [[nodiscard]] int getAxis() const
+    {
+        return m_env->CallIntMethod(m_motionRange, m_getAxisMethod);
+    }
+
+private:
+    JNIEnv*   m_env;
+    jobject   m_motionRange;
+    jmethodID m_getAxisMethod;
+};
+
+class JniMotionRangeClass
+{
+private:
+    JniMotionRangeClass(JNIEnv* env, jclass motionRangeClass) :
+    m_env(env),
+    m_motionRangeClass(motionRangeClass)
+    {
+    }
+
+public:
+    [[nodiscard]] static std::optional<JniMotionRangeClass> findClass(JNIEnv* env);
+
+    [[nodiscard]] std::optional<JniMotionRange> makeFromJava(jobject motionRange);
+
+private:
+    JNIEnv* m_env;
+    jclass  m_motionRangeClass;
+};
+
 class JniInputDeviceClass;
 
 ////////////////////////////////////////////////////////////
@@ -105,13 +221,15 @@ private:
                    jmethodID getNameMethod,
                    jmethodID getVendorIdMethod,
                    jmethodID getProductIdMethod,
-                   jmethodID supportsSourceMethod) :
+                   jmethodID supportsSourceMethod,
+                   jmethodID getMotionRangesMethod) :
     m_env(env),
     m_inputDevice(inputDevice),
     m_getNameMethod(getNameMethod),
     m_getVendorIdMethod(getVendorIdMethod),
     m_getProductIdMethod(getProductIdMethod),
-    m_supportsSourceMethod(supportsSourceMethod)
+    m_supportsSourceMethod(supportsSourceMethod),
+    m_getMotionRangesMethod(getMotionRangesMethod)
     {
     }
 
@@ -138,6 +256,8 @@ public:
         return m_env->CallBooleanMethod(m_inputDevice, m_supportsSourceMethod, jint(sourceFlags));
     }
 
+    [[nodiscard]] std::optional<JniList<JniMotionRange, JniMotionRangeClass>> getMotionRanges() const;
+
 private:
     std::string javaStringToStd(jstring str) const;
 
@@ -147,6 +267,7 @@ private:
     jmethodID m_getVendorIdMethod;
     jmethodID m_getProductIdMethod;
     jmethodID m_supportsSourceMethod;
+    jmethodID m_getMotionRangesMethod;
 };
 
 ////////////////////////////////////////////////////////////
@@ -166,11 +287,11 @@ private:
     }
 
 public:
-    static std::optional<JniInputDeviceClass> findClass(JNIEnv* env);
+    [[nodiscard]] static std::optional<JniInputDeviceClass> findClass(JNIEnv* env);
 
-    std::optional<JniArray<jint>> getDeviceIds();
+    [[nodiscard]] std::optional<JniArray<jint>> getDeviceIds();
 
-    std::optional<JniInputDevice> getDevice(jint idx);
+    [[nodiscard]] std::optional<JniInputDevice> getDevice(jint idx);
 
 private:
     JNIEnv*   m_env;

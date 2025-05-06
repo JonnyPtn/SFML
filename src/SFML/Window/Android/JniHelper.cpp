@@ -4,6 +4,38 @@
 
 #include <ostream>
 
+std::optional<JniListClass> JniListClass::findClass(JNIEnv* env)
+{
+    assert(env);
+    jclass listClass = env->FindClass("java/util/List");
+    if (listClass == nullptr)
+        return std::nullopt;
+
+    return JniListClass(env, listClass);
+}
+
+std::optional<JniMotionRangeClass> JniMotionRangeClass::findClass(JNIEnv* env)
+{
+    assert(env);
+    jclass motionRangeClass = env->FindClass("android/view/InputDevice$MotionRange");
+    if (motionRangeClass == nullptr)
+        return std::nullopt;
+
+    return JniMotionRangeClass(env, motionRangeClass);
+}
+
+std::optional<JniMotionRange> JniMotionRangeClass::makeFromJava(jobject motionRange)
+{
+    jmethodID getAxisMethod = m_env->GetMethodID(m_motionRangeClass, "getAxis", "()I");
+    if (!getAxisMethod)
+    {
+        sf::err() << "Could not locate required InputDevice.MotionRange methods" << std::endl;
+        return std::nullopt;
+    }
+
+    return JniMotionRange(m_env, motionRange, getAxisMethod);
+}
+
 std::optional<JniInputDeviceClass> JniInputDeviceClass::findClass(JNIEnv* env)
 {
     assert(env);
@@ -36,12 +68,13 @@ std::optional<JniArray<jint>> JniInputDeviceClass::getDeviceIds()
 
 std::optional<JniInputDevice> JniInputDeviceClass::getDevice(jint idx)
 {
-    jmethodID getNameMethod        = m_env->GetMethodID(m_inputDeviceClass, "getName", "()Ljava/lang/String;");
-    jmethodID getVendorIdMethod    = m_env->GetMethodID(m_inputDeviceClass, "getVendorId", "()I");
-    jmethodID getProductIdMethod   = m_env->GetMethodID(m_inputDeviceClass, "getProductId", "()I");
-    jmethodID supportsSourceMethod = m_env->GetMethodID(m_inputDeviceClass, "supportsSource", "(I)Z");
+    jmethodID getNameMethod         = m_env->GetMethodID(m_inputDeviceClass, "getName", "()Ljava/lang/String;");
+    jmethodID getVendorIdMethod     = m_env->GetMethodID(m_inputDeviceClass, "getVendorId", "()I");
+    jmethodID getProductIdMethod    = m_env->GetMethodID(m_inputDeviceClass, "getProductId", "()I");
+    jmethodID supportsSourceMethod  = m_env->GetMethodID(m_inputDeviceClass, "supportsSource", "(I)Z");
+    jmethodID getMotionRangesMethod = m_env->GetMethodID(m_inputDeviceClass, "getMotionRanges", "()Ljava/util/List;");
 
-    if (!getNameMethod || !getVendorIdMethod || !getProductIdMethod || !supportsSourceMethod)
+    if (!getNameMethod || !getVendorIdMethod || !getProductIdMethod || !supportsSourceMethod || !getMotionRangesMethod)
     {
         sf::err() << "Could not locate required InputDevice methods" << std::endl;
         return std::nullopt;
@@ -54,7 +87,7 @@ std::optional<JniInputDevice> JniInputDeviceClass::getDevice(jint idx)
         return std::nullopt;
     }
 
-    return JniInputDevice(m_env, inputDevice, getNameMethod, getVendorIdMethod, getProductIdMethod, supportsSourceMethod);
+    return JniInputDevice(m_env, inputDevice, getNameMethod, getVendorIdMethod, getProductIdMethod, supportsSourceMethod, getMotionRangesMethod);
 }
 
 std::string JniInputDevice::javaStringToStd(jstring str) const
@@ -63,6 +96,19 @@ std::string JniInputDevice::javaStringToStd(jstring str) const
     std::string result(utfChars);
     m_env->ReleaseStringUTFChars(str, utfChars);
     return result;
+}
+
+std::optional<JniList<JniMotionRange, JniMotionRangeClass>> JniInputDevice::getMotionRanges() const
+{
+    auto cls = JniListClass::findClass(m_env);
+    if (!cls)
+        return std::nullopt;
+
+    jobject list = m_env->CallObjectMethod(m_inputDevice, m_getMotionRangesMethod);
+    if (!list)
+        return std::nullopt;
+
+    return cls->makeFromJava<JniMotionRange, JniMotionRangeClass>(list);
 }
 
 std::optional<Jni> Jni::attachCurrentThread(JavaVM* vm, JNIEnv** env)

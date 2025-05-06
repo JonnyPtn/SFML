@@ -407,7 +407,7 @@ int WindowImplAndroid::processKeyEvent(AInputEvent* inputEvent, ActivityStates& 
         return processKeyboardKeyEvent(inputEvent, action, std::get<Keyboard::Key>(sfCode), metakey);
     }
 
-    return processJoystickButtonEvent(action, std::get<Joystick::Button>(sfCode), states);
+    return processJoystickButtonEvent(inputEvent, action, std::get<Joystick::Button>(sfCode), states);
 }
 
 ////////////////////////////////////////////////////////////
@@ -459,10 +459,14 @@ int WindowImplAndroid::processKeyboardKeyEvent(AInputEvent* inputEvent, std::int
 }
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::processJoystickButtonEvent(std::int32_t action, Joystick::Button button, ActivityStates& states)
+int WindowImplAndroid::processJoystickButtonEvent(AInputEvent* inputEvent, std::int32_t action, Joystick::Button button, ActivityStates& states)
 {
-    const auto buttonIdx                      = static_cast<std::underlying_type_t<decltype(button)>>(button);
-    states.isJoystickButtonPressed[buttonIdx] = action == AKEY_EVENT_ACTION_DOWN;
+    const auto deviceId = AInputEvent_getDeviceId(inputEvent);
+    if (states.joystickStates.find(deviceId) == states.joystickStates.end())
+        return 1;
+
+    const auto buttonIdx                                  = static_cast<std::underlying_type_t<decltype(button)>>(button);
+    states.joystickStates.at(deviceId).buttons[buttonIdx] = action == AKEY_EVENT_ACTION_DOWN;
     return 1;
 }
 
@@ -511,16 +515,18 @@ int WindowImplAndroid::processMotionEvent(AInputEvent* inputEvent, ActivityState
             on Windows and Android. Xbox One for example will report triggers as negative/positive
             values on the single axis, while Android reports them on two separate axii.
             */
+            const auto deviceId = AInputEvent_getDeviceId(inputEvent);
+            if (states.joystickStates.find(deviceId) == states.joystickStates.end())
+                return 1;
 
             const float factor = 100.f; // Windows code normalizes axis to range <-100, 100> instead of sane <-1, 1>
-            states.joyAxii[Joystick::Axis::X] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_X, p) * factor;
-            states.joyAxii[Joystick::Axis::Y] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Y, p) * factor;
-            states.joyAxii[Joystick::Axis::Z] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_Z, p) * factor;
-            states.joyAxii[Joystick::Axis::R] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RZ, p) * factor;
-            states.joyAxii[Joystick::Axis::U] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_LTRIGGER, p) * factor;
-            states.joyAxii[Joystick::Axis::V] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_RTRIGGER, p) * factor;
-            states.joyAxii[Joystick::Axis::PovX] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_X, p) * factor;
-            states.joyAxii[Joystick::Axis::PovY] = AMotionEvent_getAxisValue(inputEvent, AMOTION_EVENT_AXIS_HAT_Y, p) * factor;
+            auto& axes   = states.joystickStates.at(deviceId).axes;
+
+            for (unsigned axisIdx = 0; axisIdx < Joystick::AxisCount; ++axisIdx)
+            {
+                const auto axis = static_cast<Joystick::Axis>(axisIdx);
+                axes[axis]      = AMotionEvent_getAxisValue(inputEvent, JoystickImpl::sfAxisToAndroid(axis), p) * factor;
+            }
         }
     }
 

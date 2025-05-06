@@ -31,9 +31,39 @@
 #include <SFML/System/Android/Activity.hpp>
 #include <SFML/System/Err.hpp>
 
+namespace
+{
+    static std::optional<sf::priv::JoystickCaps> getCapabilitiesFromJni(const JniInputDevice& inputDevice)
+    {
+        auto motionRanges = inputDevice.getMotionRanges();
+        if (!motionRanges)
+        {
+            sf::err() << "Gamepad was found, but its capabilities couldn't be read, skipping" << std::endl;
+            return std::nullopt;
+        }
+
+        sf::priv::JoystickCaps capabilities = {sf::Joystick::ButtonCount, {false}};
+
+        for (ssize_t axisIdx = 0; axisIdx < motionRanges->getSize(); ++axisIdx)
+        {
+            auto motionRange = (*motionRanges)[axisIdx];
+            if (!motionRange)
+            {
+                sf::err() << "Gamepad was found, but its capabilities couldn't be read, skipping" << std::endl;
+                return std::nullopt;
+            }
+
+            const auto axis = sf::priv::JoystickImpl::androidAxisToSf(motionRange->getAxis());
+            if (axis)
+                capabilities.axes[*axis] = true;
+        }
+
+        return capabilities;
+    }
+}
+
 namespace sf::priv
 {
-
 
 ////////////////////////////////////////////////////////////
 void JoystickImpl::initialize()
@@ -52,14 +82,13 @@ bool JoystickImpl::isConnected(unsigned int index)
 {
     // This is called as a prefilter before open, but it
     // would just duplicate the logic of open.
-    return index == 0;
+    return index < Joystick::Count;
 }
-
 
 ////////////////////////////////////////////////////////////
 bool JoystickImpl::open(unsigned int joyIndex)
 {
-    if (joyIndex != 0)
+    if (joyIndex >= Joystick::Count)
         return false;
 
     // Retrieve activity states
@@ -82,6 +111,7 @@ bool JoystickImpl::open(unsigned int joyIndex)
     if (!deviceIds)
         return false;
 
+    unsigned foundGamepadsSoFar = 0;
     for (jsize i = 0; i < deviceIds->getLength(); ++i)
     {
         const auto deviceId    = (*deviceIds)[i];
@@ -92,6 +122,20 @@ bool JoystickImpl::open(unsigned int joyIndex)
         if (!inputDevice->supportsSource(AINPUT_SOURCE_GAMEPAD | AINPUT_SOURCE_JOYSTICK))
             continue;
 
+        if (foundGamepadsSoFar < joyIndex)
+        {
+            ++foundGamepadsSoFar;
+            continue;
+        }
+
+        if (states.joystickStates.find(deviceId) != states.joystickStates.end())
+            continue; // this gamepad is already registered
+
+        if (const auto capabilities = getCapabilitiesFromJni(*inputDevice))
+            m_capabilities = *capabilities;
+        else
+            continue;
+
         m_identification = Joystick::Identification{
             inputDevice->getName(),
             inputDevice->getVendorId(),
@@ -99,6 +143,8 @@ bool JoystickImpl::open(unsigned int joyIndex)
         };
 
         m_currentDeviceIdx = deviceId;
+
+        states.joystickStates[m_currentDeviceIdx] = {};
 
         return true;
     }
@@ -108,15 +154,18 @@ bool JoystickImpl::open(unsigned int joyIndex)
 
 
 ////////////////////////////////////////////////////////////
-void JoystickImpl::close()
+void JoystickImpl::close() const
 {
+    ActivityStates&       states = getActivity();
+    const std::lock_guard lock(states.mutex);
+    states.joystickStates.erase(m_currentDeviceIdx);
 }
 
 
 ////////////////////////////////////////////////////////////
 JoystickCaps JoystickImpl::getCapabilities() const
 {
-    return JoystickCaps{Joystick::ButtonCount, EnumArray<Joystick::Axis, bool, Joystick::AxisCount>{true}};
+    return m_capabilities;
 }
 
 
@@ -144,9 +193,52 @@ JoystickState JoystickImpl::update() const
 
     auto inputDeviceClass = JniInputDeviceClass::findClass(env);
     if (!inputDeviceClass)
+    {
         return {false};
+    }
 
-    return {inputDeviceClass->getDevice(m_currentDeviceIdx).has_value(), states.joyAxii, states.isJoystickButtonPressed};
+    const bool isConnected = inputDeviceClass->getDevice(m_currentDeviceIdx).has_value();
+    if (states.joystickStates.find(m_currentDeviceIdx) == states.joystickStates.end())
+    {
+        // This technically shouldn't happen, but when I have connected physical gamepad
+        // and then connect/disconnect a bluetooth one, states for the physical one
+        // disappears for a frame and then it reconnects.
+        return {false};
+    }
+
+    return {isConnected, states.joystickStates.at(m_currentDeviceIdx).axes, states.joystickStates.at(m_currentDeviceIdx).buttons};
+}
+
+std::optional<Joystick::Axis> JoystickImpl::androidAxisToSf(int axisCode)
+{
+    switch (axisCode)
+    {
+        case AMOTION_EVENT_AXIS_X:        return Joystick::Axis::X;
+        case AMOTION_EVENT_AXIS_Y:        return Joystick::Axis::Y;
+        case AMOTION_EVENT_AXIS_Z:        return Joystick::Axis::Z;
+        case AMOTION_EVENT_AXIS_RZ:       return Joystick::Axis::R;
+        case AMOTION_EVENT_AXIS_LTRIGGER: return Joystick::Axis::U;
+        case AMOTION_EVENT_AXIS_RTRIGGER: return Joystick::Axis::V;
+        case AMOTION_EVENT_AXIS_HAT_X:    return Joystick::Axis::PovX;
+        case AMOTION_EVENT_AXIS_HAT_Y:    return Joystick::Axis::PovY;
+        default:                          return std::nullopt;
+    }
+}
+
+int JoystickImpl::sfAxisToAndroid(Joystick::Axis axis)
+{
+    switch (axis)
+    {
+        case Joystick::Axis::X:    return AMOTION_EVENT_AXIS_X;
+        case Joystick::Axis::Y:    return AMOTION_EVENT_AXIS_Y;
+        case Joystick::Axis::Z:    return AMOTION_EVENT_AXIS_Z;
+        case Joystick::Axis::R:    return AMOTION_EVENT_AXIS_RZ;
+        case Joystick::Axis::U:    return AMOTION_EVENT_AXIS_LTRIGGER;
+        case Joystick::Axis::V:    return AMOTION_EVENT_AXIS_RTRIGGER;
+        case Joystick::Axis::PovX: return AMOTION_EVENT_AXIS_HAT_X;
+        case Joystick::Axis::PovY: return AMOTION_EVENT_AXIS_HAT_Y;
+        default:                   return -1;
+    }
 }
 
 } // namespace sf::priv
