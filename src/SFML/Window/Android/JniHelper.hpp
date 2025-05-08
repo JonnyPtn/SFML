@@ -89,7 +89,7 @@ private:
 
 class JniListClass;
 
-template<class T, class TClass>
+template <class T, class TClass>
 class JniList
 {
 private:
@@ -132,16 +132,14 @@ private:
 class JniListClass
 {
 private:
-    JniListClass(JNIEnv* env, jclass listClass) :
-    m_env(env),
-    m_listClass(listClass)
+    JniListClass(JNIEnv* env, jclass listClass) : m_env(env), m_listClass(listClass)
     {
     }
 
 public:
     [[nodiscard]] static std::optional<JniListClass> findClass(JNIEnv* env);
 
-    template<class T, class TClass>
+    template <class T, class TClass>
     [[nodiscard]] std::optional<JniList<T, TClass>> makeFromJava(jobject list)
     {
         jmethodID getMethod  = m_env->GetMethodID(m_listClass, "get", "(I)Ljava/lang/Object;");
@@ -149,7 +147,7 @@ public:
 
         if (!getMethod || !sizeMethod)
         {
-            sf::err() << "Could not locate required List<InputDevice.MotionRange> methods" << std::endl;
+            sf::err() << "Could not locate required List methods" << std::endl;
             return std::nullopt;
         }
 
@@ -166,10 +164,7 @@ class JniMotionRangeClass;
 class JniMotionRange
 {
 private:
-    JniMotionRange(JNIEnv* env, jobject motionRange, jmethodID getAxisMethod) :
-    m_env(env),
-    m_motionRange(motionRange),
-    m_getAxisMethod(getAxisMethod)
+    JniMotionRange(JNIEnv* env, jobject motionRange, jmethodID getAxisMethod) : m_env(env), m_motionRange(motionRange), m_getAxisMethod(getAxisMethod)
     {
     }
 

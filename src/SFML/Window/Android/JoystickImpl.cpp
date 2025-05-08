@@ -33,34 +33,34 @@
 
 namespace
 {
-    static std::optional<sf::priv::JoystickCaps> getCapabilitiesFromJni(const JniInputDevice& inputDevice)
+std::optional<sf::priv::JoystickCaps> getCapabilitiesFromJni(const JniInputDevice& inputDevice)
+{
+    auto motionRanges = inputDevice.getMotionRanges();
+    if (!motionRanges)
     {
-        auto motionRanges = inputDevice.getMotionRanges();
-        if (!motionRanges)
+        sf::err() << "Gamepad was found, but its capabilities couldn't be read, skipping" << std::endl;
+        return std::nullopt;
+    }
+
+    sf::priv::JoystickCaps capabilities = {sf::Joystick::ButtonCount, {false}};
+
+    for (ssize_t axisIdx = 0; axisIdx < motionRanges->getSize(); ++axisIdx)
+    {
+        auto motionRange = (*motionRanges)[axisIdx];
+        if (!motionRange)
         {
             sf::err() << "Gamepad was found, but its capabilities couldn't be read, skipping" << std::endl;
             return std::nullopt;
         }
 
-        sf::priv::JoystickCaps capabilities = {sf::Joystick::ButtonCount, {false}};
-
-        for (ssize_t axisIdx = 0; axisIdx < motionRanges->getSize(); ++axisIdx)
-        {
-            auto motionRange = (*motionRanges)[axisIdx];
-            if (!motionRange)
-            {
-                sf::err() << "Gamepad was found, but its capabilities couldn't be read, skipping" << std::endl;
-                return std::nullopt;
-            }
-
-            const auto axis = sf::priv::JoystickImpl::androidAxisToSf(motionRange->getAxis());
-            if (axis)
-                capabilities.axes[*axis] = true;
-        }
-
-        return capabilities;
+        const auto axis = sf::priv::JoystickImpl::androidAxisToSf(motionRange->getAxis());
+        if (axis)
+            capabilities.axes[*axis] = true;
     }
+
+    return capabilities;
 }
+} // namespace
 
 namespace sf::priv
 {
@@ -206,11 +206,14 @@ JoystickState JoystickImpl::update() const
         return {false};
     }
 
-    return {isConnected, states.joystickStates.at(m_currentDeviceIdx).axes, states.joystickStates.at(m_currentDeviceIdx).buttons};
+    return {isConnected,
+            states.joystickStates.at(m_currentDeviceIdx).axes,
+            states.joystickStates.at(m_currentDeviceIdx).buttons};
 }
 
 std::optional<Joystick::Axis> JoystickImpl::androidAxisToSf(int axisCode)
 {
+    // clang-format off
     switch (axisCode)
     {
         case AMOTION_EVENT_AXIS_X:        return Joystick::Axis::X;
@@ -223,10 +226,12 @@ std::optional<Joystick::Axis> JoystickImpl::androidAxisToSf(int axisCode)
         case AMOTION_EVENT_AXIS_HAT_Y:    return Joystick::Axis::PovY;
         default:                          return std::nullopt;
     }
+    // clang-format on
 }
 
 int JoystickImpl::sfAxisToAndroid(Joystick::Axis axis)
 {
+    // clang-format off
     switch (axis)
     {
         case Joystick::Axis::X:    return AMOTION_EVENT_AXIS_X;
@@ -239,6 +244,7 @@ int JoystickImpl::sfAxisToAndroid(Joystick::Axis axis)
         case Joystick::Axis::PovY: return AMOTION_EVENT_AXIS_HAT_Y;
         default:                   return -1;
     }
+    // clang-format on
 }
 
 } // namespace sf::priv

@@ -231,7 +231,10 @@ private:
     static int processScrollEvent(AInputEvent* inputEvent, ActivityStates& states);
     static int processKeyEvent(AInputEvent* inputEvent, ActivityStates& states);
     static int processKeyboardKeyEvent(AInputEvent* inputEvent, std::int32_t action, sf::Keyboard::Key key, std::int32_t metakey);
-    static int processJoystickButtonEvent(AInputEvent* inputEvent, std::int32_t action, Joystick::Button button, ActivityStates& states);
+    static int processJoystickButtonEvent(AInputEvent* inputEvent,
+                                          std::int32_t action,
+                                          Joystick::Button button,
+                                          ActivityStates& states);
     static int processMotionEvent(AInputEvent* inputEvent, ActivityStates& states);
     static int processPointerEvent(bool isDown, AInputEvent* event, ActivityStates& states);
 

@@ -112,7 +112,7 @@ JoystickManager::JoystickManager()
 ////////////////////////////////////////////////////////////
 JoystickManager::~JoystickManager()
 {
-    for (Item& item : m_joysticks)
+    for (const Item& item : m_joysticks)
     {
         if (item.state.connected)
             item.joystick.close();

@@ -459,13 +459,16 @@ int WindowImplAndroid::processKeyboardKeyEvent(AInputEvent* inputEvent, std::int
 }
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::processJoystickButtonEvent(AInputEvent* inputEvent, std::int32_t action, Joystick::Button button, ActivityStates& states)
+int WindowImplAndroid::processJoystickButtonEvent(AInputEvent* inputEvent,
+                                                  std::int32_t action,
+                                                  Joystick::Button button,
+                                                  ActivityStates& states)
 {
     const auto deviceId = AInputEvent_getDeviceId(inputEvent);
     if (states.joystickStates.find(deviceId) == states.joystickStates.end())
         return 1;
 
-    const auto buttonIdx                                  = static_cast<std::underlying_type_t<decltype(button)>>(button);
+    const auto buttonIdx = static_cast<std::underlying_type_t<decltype(button)>>(button);
     states.joystickStates.at(deviceId).buttons[buttonIdx] = action == AKEY_EVENT_ACTION_DOWN;
     return 1;
 }
@@ -520,12 +523,12 @@ int WindowImplAndroid::processMotionEvent(AInputEvent* inputEvent, ActivityState
                 return 1;
 
             const float factor = 100.f; // Windows code normalizes axis to range <-100, 100> instead of sane <-1, 1>
-            auto& axes   = states.joystickStates.at(deviceId).axes;
+            auto&       axes   = states.joystickStates.at(deviceId).axes;
 
             for (unsigned axisIdx = 0; axisIdx < Joystick::AxisCount; ++axisIdx)
             {
                 const auto axis = static_cast<Joystick::Axis>(axisIdx);
-                axes[axis]      = AMotionEvent_getAxisValue(inputEvent, JoystickImpl::sfAxisToAndroid(axis), p) * factor;
+                axes[axis] = AMotionEvent_getAxisValue(inputEvent, JoystickImpl::sfAxisToAndroid(axis), p) * factor;
             }
         }
     }
