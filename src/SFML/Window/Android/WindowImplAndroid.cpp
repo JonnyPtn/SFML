@@ -459,10 +459,10 @@ int WindowImplAndroid::processKeyboardKeyEvent(AInputEvent* inputEvent, std::int
 }
 
 ////////////////////////////////////////////////////////////
-int WindowImplAndroid::processJoystickButtonEvent(AInputEvent* inputEvent,
-                                                  std::int32_t action,
+int WindowImplAndroid::processJoystickButtonEvent(AInputEvent*     inputEvent,
+                                                  std::int32_t     action,
                                                   Joystick::Button button,
-                                                  ActivityStates& states)
+                                                  ActivityStates&  states)
 {
     const auto deviceId = AInputEvent_getDeviceId(inputEvent);
     if (states.joystickStates.find(deviceId) == states.joystickStates.end())

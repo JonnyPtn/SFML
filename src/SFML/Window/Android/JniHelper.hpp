@@ -164,7 +164,10 @@ class JniMotionRangeClass;
 class JniMotionRange
 {
 private:
-    JniMotionRange(JNIEnv* env, jobject motionRange, jmethodID getAxisMethod) : m_env(env), m_motionRange(motionRange), m_getAxisMethod(getAxisMethod)
+    JniMotionRange(JNIEnv* env, jobject motionRange, jmethodID getAxisMethod) :
+    m_env(env),
+    m_motionRange(motionRange),
+    m_getAxisMethod(getAxisMethod)
     {
     }
 
@@ -185,9 +188,7 @@ private:
 class JniMotionRangeClass
 {
 private:
-    JniMotionRangeClass(JNIEnv* env, jclass motionRangeClass) :
-    m_env(env),
-    m_motionRangeClass(motionRangeClass)
+    JniMotionRangeClass(JNIEnv* env, jclass motionRangeClass) : m_env(env), m_motionRangeClass(motionRangeClass)
     {
     }
 
