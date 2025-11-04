@@ -443,7 +443,9 @@ function(sfml_add_test target SOURCES DEPENDS)
         target_compile_options(${target} PRIVATE /utf-8)
     endif()
 
-    # Add the test
+    # Add the test - catch_discover_tests uses the absolute path to the exe on the host machine, which can only work
+    # if you deploy it to the same path on the device. While this might work on unix hosts it can't work on windows
+    # where the absolute path includes the colon after the drive letter that makes the path invalid 
     if (ANDROID)
         find_program(ADB adb)
         add_test(NAME ${target} COMMAND ${ADB} shell "cd /data/local/tmp; export LD_LIBRARY_PATH=/data/local/tmp; ./$<TARGET_FILE_NAME:${target}>" )
