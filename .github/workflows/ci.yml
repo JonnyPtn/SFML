@@ -218,15 +218,14 @@ jobs:
         # Make use of a test to print OpenGL vendor/renderer/version info to the console
         find build/bin -name test-sfml-window -or -name test-sfml-window.exe -exec sh -c "{} *sf::Context* --section=\"Version String\" --success | grep OpenGL" \;
 
-    - name: Test (Windows)
-      if: runner.os == 'Windows' && !contains(matrix.platform.name, 'MinGW') && !contains(matrix.platform.name, 'arm64')
+    - name: Test (Windows/Linux/macOS)
+      if: ${{ !contains(matrix.platform.name, 'arm64') && !contains(matrix.platform.name, 'iOS') && !contains(matrix.platform.name, 'Android') }}
       run: |
         cmake --build build --target runtests --config ${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }}
 
-    - name: Test (Linux/macOS/MinGW)
+    - name: Coverage (Linux/macOS/MinGW)
       if: (runner.os != 'Windows' || contains(matrix.platform.name, 'MinGW')) && !contains(matrix.platform.name, 'iOS') && !contains(matrix.platform.name, 'Android')
       run: |
-        ctest --test-dir build --output-on-failure -C ${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }} --repeat until-pass:3
         # Run gcovr to extract coverage information from the test run
         if [ "${{ matrix.type.name }}" == "Debug" ]; then
           gcovr -r $GITHUB_WORKSPACE -x build/coverage.out -s -f 'src/SFML/.*' -f 'include/SFML/.*' ${{ matrix.platform.gcovr_options }} $GITHUB_WORKSPACE
