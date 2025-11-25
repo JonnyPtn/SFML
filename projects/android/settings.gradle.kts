@@ -23,4 +23,5 @@ rootProject.name = "SFML"
 include(":window-example")
 include(":events-example")
 include(":opengl-example")
+include(":stencil-example")
 include(":SFML")

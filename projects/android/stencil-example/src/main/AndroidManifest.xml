@@ -3,14 +3,14 @@
 
     <application
         android:allowBackup="true"
-        android:label="opengl-example"
+        android:label="stencil-example"
         android:supportsRtl="true">
         <activity
             android:name="android.app.NativeActivity"
             android:exported="true"
-            android:label="opengl-example">
+            android:label="stencil-example">
             <meta-data android:name="android.app.lib_name"
-                        android:value="opengl" />
+                        android:value="stencil" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
