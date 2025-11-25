@@ -22,4 +22,5 @@ dependencyResolutionManagement {
 rootProject.name = "SFML"
 include(":window-example")
 include(":events-example")
+include(":opengl-example")
 include(":SFML")
