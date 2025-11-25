@@ -65,23 +65,25 @@ WindowImplAndroid::WindowImplAndroid(VideoMode mode,
     m_size(mode.size)
 {
     ActivityStates&       states = getActivity();
-    const std::lock_guard lock(states.mutex);
+    {
+        const std::lock_guard lock(states.mutex);
 
-    if (state == State::Fullscreen)
-        states.fullscreen = true;
+        if (state == State::Fullscreen)
+            states.fullscreen = true;
 
-    const bool shouldCreateSurface = (states.window != nullptr) && (WindowImplAndroid::singleInstance == nullptr);
+        WindowImplAndroid::singleInstance = this;
+        states.forwardEvent = forwardEvent;
 
-    WindowImplAndroid::singleInstance = this;
-    states.forwardEvent               = forwardEvent;
+        // Register process event callback
+        states.processEvent = processEvent;
+        states.initialized = true;
+    }
 
-    // Register process event callback
-    states.processEvent = processEvent;
-
-    if (shouldCreateSurface)
-        states.forwardEvent(sf::Event::FocusGained{});
-
-    states.initialized = true;
+    // Wait for window to be created
+    while (states.window == nullptr)
+    {
+        ALooper_pollOnce(0, nullptr, nullptr, nullptr);
+    }
 }
 
 
