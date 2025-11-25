@@ -7,6 +7,10 @@ plugins {
 android {
     namespace = "com.sfml.events_example"
     compileSdk = 36
+    sourceSets["main"].assets {
+        srcDir("../../../examples/event_handling")
+
+    }
 
     defaultConfig {
         applicationId = "com.sfml.events_example"
@@ -14,8 +18,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 }
 
