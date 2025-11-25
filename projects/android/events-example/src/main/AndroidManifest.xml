@@ -3,14 +3,14 @@
 
     <application
         android:allowBackup="true"
-        android:label="window-example"
+        android:label="events-example"
         android:supportsRtl="true">
         <activity
             android:name="android.app.NativeActivity"
             android:exported="true"
-            android:label="window-example">
+            android:label="events-example">
             <meta-data android:name="android.app.lib_name"
-                        android:value="window" />
+                        android:value="event_handling" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
