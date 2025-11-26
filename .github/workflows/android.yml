@@ -1,0 +1,64 @@
+name: Android
+
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: android-${{github.ref}}
+  cancel-in-progress: true
+
+env:
+  ANDROID_NDK_VERSION: "26.1.10909125" # Android NDK version to use
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: ${{ matrix.platform }} - ${{ matrix.arch }} - ${{ matrix.api }} - ${{ matrix.config }} - ${{ matrix.stl_type }}
+    runs-on: ${{ matrix.platform }}
+
+    env:
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-2025, ubuntu-24.04, macos-15]
+        arch: [x86, x86_64, armeabi-v7a, arm64-v8a]
+        api: [21, 24, 29, 33]
+        config: [Debug, Release]
+        stl_type: [c++_shared, c++_static]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Get CMake and Ninja
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: 3.28
+        ninjaVersion: latest
+
+    - name: Install Android Components
+      run: |
+        echo "y" | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "build-tools;33.0.2"
+        echo "y" | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
+        ANDROID_NDK_ROOT=$(echo $ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION)
+        echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> $GITHUB_ENV
+
+    - name: Setup CCache
+      uses: hendrikmuhs/ccache-action@v1.2.12
+      with:
+        verbose: 2
+        key: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.api }}-${{ matrix.config }}-${{ matrix.stl_type }}
+
+    - name: Configure CMake
+      run: cmake --preset dev -DCMAKE_VERBOSE_MAKEFILE=ON -GNinja -DCMAKE_ANDROID_ARCH_ABI=${{ matrix.arch }} -DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_VERSION=${{ matrix.api }} -DCMAKE_ANDROID_NDK=$ANDROID_NDK_ROOT -DBUILD_SHARED_LIBS=ON -DCMAKE_ANDROID_STL_TYPE=${{ matrix.stl_type }} -DSFML_RUN_DISPLAY_TESTS=OFF -DSFML_RUN_AUDIO_DEVICE_TESTS=OFF
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target install
+
+    - name: Build Android example
+      if: matrix.platform.name == 'Android'
+      run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{matrix.arch}} -P MIN_SDK=${{matrix.api}}
