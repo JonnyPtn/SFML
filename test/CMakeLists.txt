@@ -92,6 +92,21 @@ if(SFML_OS_ANDROID)
             COMMAND ${ADB} shell "ls -la                  ${TARGET_DIR}"
         )
 
+        # Generate proxy script that translates CTest commands into adb shell commands
+        if(CMAKE_HOST_WIN32)
+            file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/run-in-adb-shell.bat" CONTENT
+                "@echo off\n\
+                for %%f in (\"%1\") do set \"exe=%%~nxf\"\n\
+                adb shell \"cd ${TARGET_DIR}; LD_LIBRARY_PATH=${TARGET_DIR} /data/local/tmp/%exe% \\\"%2\\\" \\\"%3\\\" \\\"%4\\\" \\\"%5\\\" \\\"%6\\\" \\\"%7\\\" \\\"%8\\\" \\\"%9\\\"\"\n"
+                FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+        else()
+            file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/run-in-adb-shell.sh" CONTENT
+                "#!/bin/bash\n\
+                exe=$(basename $1)
+                adb shell \"cd ${TARGET_DIR}; LD_LIBRARY_PATH=${TARGET_DIR} /data/local/tmp/$exe \\\"$2\\\" \\\"$3\\\" \\\"$4\\\" \\\"$5\\\" \\\"$6\\\" \\\"$7\\\" \\\"$8\\\" \\\"$9\\\"\"\n"
+                FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+        endif()
+
         # If using shared STL that also needs to be copied
         if(CMAKE_ANDROID_STL_TYPE STREQUAL "c++_shared")
             # Find it in the ndk first. It's located in a path specific to both host and target arch
