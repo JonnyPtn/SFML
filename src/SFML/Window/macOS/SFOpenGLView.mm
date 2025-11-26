@@ -342,6 +342,34 @@
 }
 
 
+////////////////////////////////////////////////////////
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender
+{
+    return NSDragOperationLink;
+}
+
+////////////////////////////////////////////////////////
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)sender
+{
+    NSPasteboard* board = [sender draggingPasteboard];
+    NSArray* files = [board propertyListForType:NSFilenamesPboardType];
+    if (files && files.count > 0)
+    {
+        sf::Event::FilesDropped event;
+        event.files.resize(files.count);
+        for (auto i = 0u; i < files.count; i++)
+        {
+            const char*      utf8   = [files[i] cStringUsingEncoding:NSUTF8StringEncoding];
+            const NSUInteger length = [files[i] lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+            event.files[i] = sf::String::fromUtf8(utf8, utf8 + length);
+        }
+        m_requester->filesDropped(event);
+    }
+    
+    return YES;
+}
+
+
 #pragma mark
 #pragma mark Subclassing methods
 

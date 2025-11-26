@@ -308,6 +308,7 @@ public:
             // Draw the contents of the log to the window
             m_window.clear();
             m_logText.setPosition({0.f, 0.f});
+            m_logText.setString("");
             for (std::size_t i = 0; i < m_log.size(); ++i)
             {
                 const auto previousBounds = m_logText.getGlobalBounds();

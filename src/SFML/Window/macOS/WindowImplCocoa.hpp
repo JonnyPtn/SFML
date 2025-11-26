@@ -353,6 +353,26 @@ public:
     ///
     ////////////////////////////////////////////////////////////
     void setKeyRepeatEnabled(bool enabled) override;
+    
+    ////////////////////////////////////////////////////////////
+    /// \brief Enable or disable file dropping
+    ///
+    /// \param enabled True to enable, false to disable
+    ///
+    /// \return True if operation was successful, false otherwise
+    ///
+    ////////////////////////////////////////////////////////////
+    bool setFileDroppingEnabled(bool enabled) override;
+    
+    ////////////////////////////////////////////////////////////
+    /// \brief Files Dropped Event - called by the cocoa view object
+    ///
+    /// Send the event to SFML WindowImpl class.
+    ///
+    /// \param event dropped files
+    ///
+    ////////////////////////////////////////////////////////////
+    void filesDropped(Event::FilesDropped event);
 
     ////////////////////////////////////////////////////////////
     /// \brief Request the current window to be made the active

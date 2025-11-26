@@ -477,6 +477,26 @@ void WindowImplCocoa::setKeyRepeatEnabled(bool enabled)
 
 
 ////////////////////////////////////////////////////////////
+bool WindowImplCocoa::setFileDroppingEnabled(bool enabled)
+{
+    const AutoreleasePool pool;
+    if (enabled)
+        [m_delegate enableFileDrop];
+    else
+        [m_delegate disableFileDrop];
+    return true;
+}
+
+
+////////////////////////////////////////////////////////////
+void WindowImplCocoa::filesDropped(Event::FilesDropped event)
+{
+    pushEvent(event);
+}
+
+
+
+////////////////////////////////////////////////////////////
 void WindowImplCocoa::requestFocus()
 {
     const AutoreleasePool pool;

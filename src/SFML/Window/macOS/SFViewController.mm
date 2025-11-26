@@ -248,6 +248,19 @@
 
 
 ////////////////////////////////////////////////////////
+- (void)enableFileDrop
+{
+    [m_oglView registerForDraggedTypes: [NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
+}
+
+////////////////////////////////////////////////////////
+- (void)disableFileDrop
+{
+    [m_oglView unregisterDraggedTypes];
+}
+
+
+////////////////////////////////////////////////////////
 - (void)setIconTo:(sf::Vector2u)size with:(const std::uint8_t*)pixels
 {
     (void)size;
