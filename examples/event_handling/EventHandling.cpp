@@ -20,6 +20,15 @@ std::string vec2ToString(const sf::Vector2i vec2)
 {
     return '(' + std::to_string(vec2.x) + ", " + std::to_string(vec2.y) + ')';
 }
+std::string filesDroppedToString(const sf::Event::FilesDropped& filesDropped)
+{
+    auto str = std::to_string(filesDropped.count) + " file(s) dropped: ";
+    for (auto i = 0u; i < filesDropped.count; ++i)
+    {
+        str += "\n- " + filesDropped.files[i];
+    }
+    return str;
+}
 } // namespace
 
 
@@ -34,6 +43,7 @@ public:
     Application()
     {
         m_window.setVerticalSyncEnabled(true);
+        m_window.setFileDroppingEnabled(true);
         m_logText.setFillColor(sf::Color::White);
         m_handlerText.setFillColor(sf::Color::White);
         m_handlerText.setStyle(sf::Text::Bold);
@@ -93,6 +103,11 @@ public:
         std::optional<std::string> operator()(const sf::Event::TouchMoved& touchMoved)
         {
             return "Touch Moved: " + vec2ToString(touchMoved.position);
+        }
+
+        std::optional<std::string> operator()(const sf::Event::FilesDropped& filesDropped)
+        {
+            return filesDroppedToString(filesDropped);
         }
 
         // When defining a visitor, make sure all event types can be handled by it.
@@ -163,6 +178,10 @@ public:
                     {
                         m_log.emplace_back("Touch Moved: " + vec2ToString(touchMoved->position));
                     }
+                    else if (const auto* filesDropped = event->getIf<sf::Event::FilesDropped>())
+                    {
+                        m_log.emplace_back(filesDroppedToString(*filesDropped));
+                    }
                     else
                     {
                         // All unhandled events will end up here
@@ -206,7 +225,9 @@ public:
                                       [&](const sf::Event::TouchEnded& touchEnded)
                                       { m_log.emplace_back("Touch Ended: " + vec2ToString(touchEnded.position)); },
                                       [&](const sf::Event::TouchMoved& touchMoved)
-                                      { m_log.emplace_back("Touch Moved: " + vec2ToString(touchMoved.position)); });
+                                      { m_log.emplace_back("Touch Moved: " + vec2ToString(touchMoved.position)); },
+                                      [&](const sf::Event::FilesDropped& filesDropped)
+                                      { m_log.emplace_back(filesDroppedToString(filesDropped)); });
 
                 // To handle unhandled events, just add the following lambda to the set of handlers
                 // [&](const auto&) { m_log.emplace_back("Other Event"); }
@@ -256,6 +277,10 @@ public:
                         {
                             m_log.emplace_back("Touch Moved: " + vec2ToString(event.position));
                         }
+                        else if constexpr (std::is_same_v<T, sf::Event::FilesDropped>)
+                        {
+                            m_log.emplace_back(filesDroppedToString(event));
+                        }
                         else
                         {
                             // All unhandled events will end up here
@@ -282,10 +307,11 @@ public:
 
             // Draw the contents of the log to the window
             m_window.clear();
-
+            m_logText.setPosition({0.f, 0.f});
             for (std::size_t i = 0; i < m_log.size(); ++i)
             {
-                m_logText.setPosition({50.f, static_cast<float>(i * 20) + 50.f});
+                const auto previousBounds = m_logText.getGlobalBounds();
+                m_logText.setPosition({50.f, previousBounds.position.y + previousBounds.size.y});
                 m_logText.setString(m_log[i]);
                 m_window.draw(m_logText);
             }
@@ -341,6 +367,11 @@ public:
     void handle(const sf::Event::TouchMoved& touchMoved)
     {
         m_log.emplace_back("Touch Moved: " + vec2ToString(touchMoved.position));
+    }
+
+    void handle(const sf::Event::FilesDropped& filesDropped)
+    {
+        m_log.emplace_back(filesDroppedToString(filesDropped));
     }
 
     template <typename T>
