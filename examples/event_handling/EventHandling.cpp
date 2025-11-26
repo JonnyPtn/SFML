@@ -22,10 +22,10 @@ std::string vec2ToString(const sf::Vector2i vec2)
 }
 std::string filesDroppedToString(const sf::Event::FilesDropped& filesDropped)
 {
-    auto str = std::to_string(filesDropped.count) + " file(s) dropped: ";
-    for (auto i = 0u; i < filesDropped.count; ++i)
+    auto str = std::to_string(filesDropped.files.size()) + " file(s) dropped: ";
+    for (const auto& path : filesDropped.files)
     {
-        str += "\n- " + filesDropped.files[i];
+        str += "\n- " + path;
     }
     return str;
 }

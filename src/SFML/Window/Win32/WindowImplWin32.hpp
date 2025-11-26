@@ -327,7 +327,6 @@ private:
     bool m_mouseInside{};   //!< Mouse is inside the window?
     bool m_fullscreen{};    //!< Is the window fullscreen?
     bool m_cursorGrabbed{}; //!< Is the mouse cursor trapped?
-    std::list<FilesType> m_droppedFiles;     ///< Buffer for the dropped files
 };
 
 } // namespace priv

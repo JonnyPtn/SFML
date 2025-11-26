@@ -1184,25 +1184,19 @@ void WindowImplWin32::processEvent(UINT message, WPARAM wParam, LPARAM lParam)
             Event::FilesDropped event;
 
             // Get the count
-            event.count = DragQueryFileW(hDrop, 0xFFFFFFFF, NULL, 0);
-            if (event.count == 0)
+            event.files.resize(DragQueryFileW(hDrop, 0xFFFFFFFF, NULL, 0));
+            if (event.files.empty())
                 break;
 
-            // Expand the buffer list by one vector
-            FilesType& files = *m_droppedFiles.insert(m_droppedFiles.end(), FilesType());
-
             // Resize and fill said buffer vector
-            files.resize(event.count);
-            for (unsigned int i = 0; i < event.count; ++i)
+            for (unsigned int i = 0; i < event.files.size(); ++i)
             {
                 std::vector<wchar_t> buf;
                 buf.resize(DragQueryFileW(hDrop, i, NULL, 0) + 1);
                 DragQueryFileW(hDrop, i, &buf.front(), static_cast<UINT>(buf.size()));
-                files[i] = &buf.front();
+                event.files[i] = &buf.front();
             }
 
-            // Let the event point to the buffer vector
-            event.files = &files.front();
 
             // Fetch the cursor's window-relative position
             POINT point;

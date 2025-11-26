@@ -37,6 +37,7 @@
 
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 
 namespace sf
@@ -282,8 +283,7 @@ public:
     ////////////////////////////////////////////////////////////
     struct FilesDropped
     {
-        unsigned int count;  ///< Number of dropped files
-        const String* files; ///< Pointer to the first file, access with event.droppedFiles.files[i] (in range [0 .. event.droppedFiles.count - 1])
+        std::vector<String> files; ///< Path(s) to the dropped file(s)
         int x;               ///< X position of the mouse pointer, relative to the left of the owner window
         int y;               ///< Y position of the mouse pointer, relative to the top of the owner window
     };
