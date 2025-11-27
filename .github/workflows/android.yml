@@ -16,6 +16,8 @@ jobs:
 
     env:
       CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
+      AVD_COMMAND: create avd -n sfml-test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force # Command used to create the Android Virtual Device
+      EMULATOR_COMMAND: -avd sfml-test -no-snapshot-save -no-window -no-audio -no-boot-anim -gpu off -camera-back none # Command line options for starting the Android emulator
 
     strategy:
       fail-fast: false
@@ -60,13 +62,26 @@ jobs:
       - name: Build Android example
         run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ matrix.arch }} -P MIN_SDK=${{ matrix.api }}
 
-      - name: Create Virtual Device
-        run: echo "no" | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n sfml-test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force
+      - name: Create Virtual Device (Unix)
+        if: runner.os != 'Windows'
+        run: echo "no" | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager ${{ env.AVD_COMMAND }}
+
+      - name: Create Virtual Device (Windows)
+        if: runner.os == 'Windows'
+        run: echo no | $ANDROID_SDK_ROOT\cmdline-tools\latest\bin\avdmanager.bat ${{ env.AVD_COMMAND }}
       
-      - name: Start virtual device
+      - name: Start virtual device (Unix)
+        if: runner.os != 'Windows'
         run: |
-          sudo nohup $ANDROID_SDK_ROOT/emulator/emulator -avd sfml-test -no-snapshot-save -no-window -no-audio -no-boot-anim -gpu off -camera-back none &
-          sudo adb wait-for-device shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done;'
+          sudo nohup $ANDROID_SDK_ROOT/emulator/emulator ${{ env.EMULATOR_COMMAND }} &
+
+      - name: Start virtual device (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          start "" %ANDROID_SDK_ROOT%\emulator\emulator.exe ${{ env.EMULATOR_COMMAND }}
+
+      - name: Wait for device boot
+        run: adb wait-for-device shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done;'
 
       - name: Test
         run: |
