@@ -64,7 +64,9 @@ jobs:
 
       - name: Create Virtual Device (Unix)
         if: runner.os != 'Windows'
-        run: echo "no" | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager ${{ env.AVD_COMMAND }}
+        run: |
+          echo "no" | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager ${{ env.AVD_COMMAND }}
+          $ANDROID_SDK_ROOT/emulator/emulator -list-avds
 
       - name: Create Virtual Device (Windows)
         if: runner.os == 'Windows'
