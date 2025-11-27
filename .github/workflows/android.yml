@@ -16,8 +16,8 @@ jobs:
 
     env:
       CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
-      AVD_COMMAND: create avd -n sfml-test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force # Command used to create the Android Virtual Device
-      EMULATOR_COMMAND: -avd sfml-test -no-snapshot-save -no-window -no-audio -no-boot-anim -gpu off -camera-back none # Command line options for starting the Android emulator
+      AVD_COMMAND: create avd -n sfml-test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force --verbose # Command used to create the Android Virtual Device
+      EMULATOR_COMMAND: -avd sfml-test # Command line options for starting the Android emulator
 
     strategy:
       fail-fast: false
