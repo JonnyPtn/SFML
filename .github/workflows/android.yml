@@ -39,7 +39,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: build-tools;33.0.2 ndk;${{ env.ANDROID_NDK_VERSION }} emulator system-images;android-${{ matrix.api }};default;${{ matrix.arch }}
+          packages: platform-tools build-tools;33.0.2 ndk;${{ env.ANDROID_NDK_VERSION }} emulator system-images;android-${{ matrix.api }};default;${{ matrix.arch }}
 
       - name: Setup NDK
         shell: bash
