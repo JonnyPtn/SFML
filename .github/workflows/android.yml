@@ -41,7 +41,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools build-tools;33.0.2 ndk;${{ env.ANDROID_NDK_VERSION }} emulator system-images;android-${{ matrix.api }};default;${{ matrix.arch }}
+          packages: platform-tools build-tools ndk;${{ env.ANDROID_NDK_VERSION }} emulator system-images;android-${{ matrix.api }};default;${{ matrix.arch }}
 
       - name: Setup NDK
         shell: bash
@@ -67,7 +67,6 @@ jobs:
         run: |
           echo "no" | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager ${{ env.AVD_COMMAND }}
           $ANDROID_SDK_ROOT/emulator/emulator -list-avds
-          ls $HOME/.android/avd
           ls $ANDROID_SDK_ROOT/avd
 
       - name: Create Virtual Device (Windows)
