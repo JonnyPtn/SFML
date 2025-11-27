@@ -65,8 +65,8 @@ jobs:
       - name: Create Virtual Device (Unix)
         if: runner.os != 'Windows'
         run: |
-          echo "no" | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager ${{ env.AVD_COMMAND }} -p $HOME/.android/avd
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager list avd
+          echo "no" | sudo avdmanager ${{ env.AVD_COMMAND }} -p $HOME/.android/avd
+          avdmanager list avd
           ls /home/runner/.android/avd
 
       - name: Create Virtual Device (Windows)
@@ -76,7 +76,7 @@ jobs:
       - name: Start virtual device (Unix)
         if: runner.os != 'Windows'
         run: |
-          $ANDROID_SDK_ROOT/emulator/emulator -verbose -list-avds
+          emulator -verbose -list-avds
           nohup $ANDROID_SDK_ROOT/emulator/emulator ${{ env.EMULATOR_COMMAND }} &
 
       - name: Start virtual device (Windows)
