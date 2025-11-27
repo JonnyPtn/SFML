@@ -27,35 +27,48 @@ jobs:
         stl_type: [c++_shared, c++_static]
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Get CMake and Ninja
-      uses: lukka/get-cmake@latest
-      with:
-        cmakeVersion: 3.28
-        ninjaVersion: latest
+      - name: Get CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: 3.28
+          ninjaVersion: latest
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        packages: build-tools;33.0.2 ndk;${{env.ANDROID_NDK_VERSION}}
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: build-tools;33.0.2 ndk;${{ env.ANDROID_NDK_VERSION }} emulator system-images;android-${{ matrix.api }};default;${{ matrix.arch }}
 
-    - name: Setup NDK
-      shell: bash
-      run: echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/${{env.ANDROID_NDK_VERSION}}" >> $GITHUB_ENV
+      - name: Setup NDK
+        shell: bash
+        run: echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
 
-    - name: Setup CCache
-      uses: hendrikmuhs/ccache-action@v1.2.12
-      with:
-        verbose: 2
-        key: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.api }}-${{ matrix.config }}-${{ matrix.stl_type }}
+      - name: Setup CCache
+        uses: hendrikmuhs/ccache-action@v1.2.12
+        with:
+          verbose: 2
+          key: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.api }}-${{ matrix.config }}-${{ matrix.stl_type }}
 
-    - name: Configure CMake      
-      run: cmake --preset dev -DCMAKE_VERBOSE_MAKEFILE=ON -GNinja -DCMAKE_ANDROID_ARCH_ABI=${{ matrix.arch }} -DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_VERSION=${{ matrix.api }} -DBUILD_SHARED_LIBS=ON -DCMAKE_ANDROID_STL_TYPE=${{ matrix.stl_type }} -DSFML_RUN_DISPLAY_TESTS=OFF -DSFML_RUN_AUDIO_DEVICE_TESTS=OFF
+      - name: Configure CMake
+        run: cmake --preset dev -DCMAKE_VERBOSE_MAKEFILE=ON -GNinja -DCMAKE_ANDROID_ARCH_ABI=${{ matrix.arch }} -DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_VERSION=${{ matrix.api }} -DBUILD_SHARED_LIBS=ON -DCMAKE_ANDROID_STL_TYPE=${{ matrix.stl_type }} -DSFML_RUN_DISPLAY_TESTS=OFF -DSFML_RUN_AUDIO_DEVICE_TESTS=OFF
 
-    - name: Build
-      run: cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target install
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target install
 
-    - name: Build Android example
-      run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{matrix.arch}} -P MIN_SDK=${{matrix.api}}
+      - name: Build Android example
+        run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ matrix.arch }} -P MIN_SDK=${{ matrix.api }}
+
+      - name: Create Virtual Device
+        run: echo "no" | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n sfml-test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force
+      
+      - name: Start virtual device
+        run: |
+          sudo nohup $ANDROID_SDK_ROOT/emulator/emulator -avd sfml-test -no-snapshot-save -no-window -no-audio -no-boot-anim -gpu off -camera-back none &
+          sudo adb wait-for-device shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done;'
+
+      - name: Test
+        run: |
+          cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target prepare-android-files
+          ctest --test-dir build --output-on-failure -C ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }}
