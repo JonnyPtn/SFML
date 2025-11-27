@@ -42,6 +42,7 @@ jobs:
         packages: build-tools;33.0.2 ndk;${{env.ANDROID_NDK_VERSION}}
 
     - name: Setup NDK
+      shell: bash
       run: echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/${{env.ANDROID_NDK_VERSION}}" >> $GITHUB_ENV
 
     - name: Setup CCache
