@@ -81,7 +81,7 @@ jobs:
           start "" %ANDROID_SDK_ROOT%\emulator\emulator.exe ${{ env.EMULATOR_COMMAND }}
 
       - name: Wait for device boot
-        run: adb wait-for-device shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done;'
+        run: $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done;'
 
       - name: Test
         run: |
