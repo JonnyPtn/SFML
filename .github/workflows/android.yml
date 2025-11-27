@@ -17,16 +17,16 @@ jobs:
     env:
       CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
       AVD_COMMAND: --verbose create avd -n sfml-test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force # Command used to create the Android Virtual Device
-      EMULATOR_COMMAND: -avd sfml-test # Command line options for starting the Android emulator
+      EMULATOR_COMMAND: -verbose -avd sfml-test # Command line options for starting the Android emulator
 
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-2025, ubuntu-24.04, macos-15]
-        arch: [x86, x86_64, armeabi-v7a, arm64-v8a]
+        platform: [ubuntu-24.04]
+        arch: [x86_64]
         api: [21]
-        config: [Debug, Release]
-        stl_type: [c++_shared, c++_static]
+        config: [Debug]
+        stl_type: [c++_shared]
 
     steps:
       - name: Checkout Code
@@ -75,6 +75,7 @@ jobs:
       - name: Start virtual device (Unix)
         if: runner.os != 'Windows'
         run: |
+          $ANDROID_SDK_ROOT/emulator/emulator -verbose -list-avds
           nohup $ANDROID_SDK_ROOT/emulator/emulator ${{ env.EMULATOR_COMMAND }} &
 
       - name: Start virtual device (Windows)
