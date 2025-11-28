@@ -24,18 +24,16 @@ jobs:
       matrix:
         generator: ["Visual Studio 17 2022", "Ninja Multi-Config"]
         shared: [true, false]
-        arch: [x64, win32, arm]
+        arch: [x64, x86, arm]
         compiler:
           [
             { c: "cl", cxx: "cl" },
-            { c: "clang", cxx: "clang++" },
+            { c: "clang-cl", cxx: "clang-cl++" },
             { c: "gcc", cxx: "g++" },
           ]
         exclude:
           - arch: arm
             generator: "Visual Studio 17 2022"
-          - arch: arm
-            generator: "Ninja Multi-Config"
           - compiler:
               c: "gcc"
               cxx: "g++"

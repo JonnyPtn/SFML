@@ -65,7 +65,7 @@ jobs:
       if: runner.os == 'Windows' && inputs.generator == 'Ninja Multi-Config' && inputs.c-compiler != 'gcc'
       uses: ilammy/msvc-dev-cmd@v1
       with:
-        arch: ${{ inputs.arch == 'arm' && 'amd64_arm64' || contains(inputs.arch, 'win32') && 'x86' || inputs.arch }}
+        arch: ${{ inputs.arch == 'arm' && 'amd64_arm64' ||  inputs.arch }}
 
 
     - name: Get CMake and Ninja
@@ -156,7 +156,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ inputs.cxx-compiler }}
         -DCMAKE_USE_SYSTEM_DEPS=${{ inputs.use-system-deps }}
         -G"${{ inputs.generator }}"
-        ${{ contains(inputs.generator, 'Visual Studio') && format('-A {0}', inputs.arch) || '' }}
+        ${{ contains(inputs.generator, 'Visual Studio') && format('-A {0}', inputs.arch == 'x86' && 'WIN32' || inputs.arch) || '' }}
         ${{ (contains(inputs.generator, 'Visual Studio') && inputs.c-compiler == 'clang') && '-T ClangCL' || '' }}
         ${{ inputs.cmake-flags }}
 
