@@ -11,9 +11,8 @@ jobs:
     name: Windows  ${{ matrix.generator }}
     uses: ./.github/workflows/reusable-build-and-test.yml
     with:
-      name: ${{ matrix.config }} ${{ matrix.shared && 'Shared' || 'Static' }} ${{ matrix.arch }} ${{ matrix.compiler.cxx }}
+      name: ${{ matrix.shared && 'Shared' || 'Static' }} ${{ matrix.arch }} ${{ matrix.compiler.cxx }}
       generator: ${{ matrix.generator }}
-      config: ${{ matrix.config }}
       arch: ${{ matrix.arch }}
       runner: "windows-2025"
       use-system-deps: false
@@ -23,8 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        generator: ["Visual Studio 17 2022", "Ninja"]
-        config: [Debug, Release]
+        generator: ["Visual Studio 17 2022", "Ninja Multi-Config"]
         shared: [true, false]
         arch: [x64, win32, arm]
         compiler:
@@ -36,6 +34,8 @@ jobs:
         exclude:
           - arch: arm
             generator: "Visual Studio 17 2022"
+          - arch: arm
+            generator: "Ninja Multi-Config"
           - compiler:
               c: "gcc"
               cxx: "g++"

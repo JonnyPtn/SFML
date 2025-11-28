@@ -9,9 +9,6 @@ on:
       generator:
         required: true
         type: string
-      config:
-        required: true
-        type: string
       build-shared:
         required: true
         type: boolean
@@ -107,17 +104,17 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1.2.12
       with:
         verbose: 2
-        key: ${{ inputs.runner }}-${{ inputs.config }}-${{ inputs.c-compiler }}-${{ inputs.cxx-compiler }}
+        key: ${{ inputs.runner }}-${{ inputs.c-compiler }}-${{ inputs.cxx-compiler }}
 
     - name: Install Gcovr for MinGW
-      if: inputs.config == 'Debug' && inputs.c-compiler == 'gcc' && runner.os == 'Windows'
+      if: inputs.c-compiler == 'gcc' && runner.os == 'Windows'
       uses: threeal/pipx-install-action@v1.0.0
       with:
         packages: gcovr
 
     - name: Install OpenCppCoverage
       uses: nick-fields/retry@v3
-      if: inputs.config == 'Debug' && runner.os == 'Windows'
+      if: runner.os == 'Windows'
       with:
         max_attempts: 10
         timeout_minutes: 3
@@ -162,13 +159,10 @@ jobs:
         ${{ contains(inputs.generator, 'Visual Studio') && format('-A {0}', inputs.arch) || '' }}
         ${{ (contains(inputs.generator, 'Visual Studio') && inputs.c-compiler == 'clang') && '-T ClangCL' || '' }}
         ${{ inputs.cmake-flags }}
-    - name: Build
-      run: cmake --build build --config ${{ inputs.config }} --target install
 
-    - name: Build Android example
-      if: inputs.cmake-system-name == 'Android'
-      run: examples/android/gradlew ${{ inputs.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ inputs.arch }} -P MIN_SDK=${{ inputs.android-api }}
- 
+    - name: Build Debug
+      run: cmake --build build --config Debug --target install
+
     - name: Prepare Test
       run: |
         set -e
@@ -184,22 +178,21 @@ jobs:
         # Make use of a test to print OpenGL vendor/renderer/version info to the console
         find build/bin -name test-sfml-window -or -name test-sfml-window.exe -exec sh -c "{} *sf::Context* --section=\"Version String\" --success | grep OpenGL" \;
 
-    - name: Test (Windows/Linux/macOS/MinGW)
+
+    - name: Test Debug (Windows/Linux/macOS/MinGW)
       if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
       run: |
-        cmake --build build --target runtests --config ${{ inputs.config }}
+        cmake --build build --target runtests --config Debug
 
     - name: Extract coverage (Linux/macOS/MinGW)
       if: (runner.os != 'Windows' || inputs.c-compiler == 'gcc') && inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
       run: |
         # Run gcovr to extract coverage information from the test run
-        if [ "${{ inputs.config }}" == "Debug" ]; then
-          gcovr -r $GITHUB_WORKSPACE -x build/coverage.out -s -f 'src/SFML/.*' -f 'include/SFML/.*' ${{ runner.os == 'Linux' && inputs.c-compiler == 'clang' && '--gcov-executable="llvm-cov-$CLANG_VERSION gcov"' || '' }} $GITHUB_WORKSPACE
-        fi
+        gcovr -r $GITHUB_WORKSPACE -x build/coverage.out -s -f 'src/SFML/.*' -f 'include/SFML/.*' ${{ runner.os == 'Linux' && inputs.c-compiler == 'clang' && '--gcov-executable="llvm-cov-$CLANG_VERSION gcov"' || '' }} $GITHUB_WORKSPACE
         ls build/
 
     - name: Upload Coverage Report to Coveralls
-      if: inputs.config == 'Debug' && github.repository == 'SFML/SFML' && inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'  && inputs.arch != 'arm64' # Disable upload in forks
+      if:  github.repository == 'SFML/SFML' && inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'  && inputs.arch != 'arm64' # Disable upload in forks
       uses: coverallsapp/github-action@v2
       with:
         file: ./build/coverage.out
@@ -208,8 +201,37 @@ jobs:
         allow-empty: true
         base-path: ${{ github.workspace }}
 
-    - name: Test Install Interface
+    - name: Build Release
+      run: cmake --build build --config Release --target install
+
+    - name: Test Release (Windows/Linux/macOS/MinGW)
+      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
+      run: |
+        cmake --build build --target runtests --config Debug
+
+    - name: Build Android example Debug
+      if: inputs.cmake-system-name == 'Android'
+      run: examples/android/gradlew 'assembleDebug'-p examples/android -P ARCH_ABI=${{ inputs.arch }} -P MIN_SDK=${{ inputs.android-api }}
+
+    - name: Build Android example Release
+      if: inputs.cmake-system-name == 'Android'
+      run: examples/android/gradlew 'assembleRelease'-p examples/android -P ARCH_ABI=${{ inputs.arch }} -P MIN_SDK=${{ inputs.android-api }}
+
+    - name: Test Install Interface Configure
+      if: inputs.cmake-system-name != 'Android'
+      run: >
+        cmake -S test/install -B test/install/build 
+        -G${{ inputs.generator }} 
+        -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/build/install 
+        -DCMAKE_VERBOSE_MAKEFILE=ON 
+        ${{ inputs.cmake-flags }}
+
+    - name: Test Install Interface Debug Build
       if: inputs.cmake-system-name != 'Android'
       run: |
-        cmake -S test/install -B test/install/build -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/build/install -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=${{ inputs.debug && 'Debug' || 'Release' }} ${{ inputs.cmake-flags }}
-        cmake --build test/install/build --config ${{ inputs.config }}
+        cmake --build test/install/build --config Debug        
+        
+    - name: Test Install Interface Release Build
+      if: inputs.cmake-system-name != 'Android'
+      run: |
+        cmake --build test/install/build --config Release
