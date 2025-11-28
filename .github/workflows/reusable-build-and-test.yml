@@ -3,6 +3,9 @@ name: Reusable Build and Test Workflow
 on:
   workflow_call:
     inputs:
+      name:
+        required: true
+        type: string
       generator:
         required: false
         type: string

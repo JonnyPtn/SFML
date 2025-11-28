@@ -11,6 +11,7 @@ jobs:
     name: Windows  ${{ matrix.generator }}
     uses: ./.github/workflows/reusable-build-and-test.yml
     with:
+      name: ${{ matrix.config }} ${{ matrix.shared && 'Shared' || 'Static' }} ${{ matrix.arch }} ${{ matrix.compiler.cxx }}
       generator: ${{ matrix.generator }}
       config: ${{ matrix.config }}
       arch: ${{ matrix.arch }}
@@ -32,3 +33,6 @@ jobs:
             { c: "clang", cxx: "clang++" },
             { c: "gcc", cxx: "g++" },
           ]
+        exclude:
+          - arch: arm
+            generator: "Visual Studio 17 2022"
