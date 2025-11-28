@@ -105,7 +105,7 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1.2.12
       with:
         verbose: 2
-        key: ${{ inputs }}
+        key: ${{ inputs.runner }}-${{ inputs.config }}-${{ inputs.c-compiler }}-${{ inputs.cxx-compiler }}
 
     - name: Install Gcovr for MinGW
       if: inputs.config == 'Debug' && inputs.c-compiler == 'gcc' && runner.os == 'Windows'
@@ -208,15 +208,3 @@ jobs:
       run: |
         cmake -S test/install -B test/install/build -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/build/install -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=${{ inputs.debug && 'Debug' || 'Release' }} ${{ inputs.cmake-flags }}
         cmake --build test/install/build --config ${{ inputs.config }}
-
-  coverage:
-    name: Finalize Coverage Upload
-    needs: build
-    runs-on: ubuntu-24.04
-    if: github.repository == 'SFML/SFML' # Disable upload in forks
-
-    steps:
-    - name: Coveralls Finished
-      uses: coverallsapp/github-action@v2
-      with:
-        parallel-finished: true

@@ -6,13 +6,9 @@ concurrency:
   group: environment-${{github.ref}}
   cancel-in-progress: true
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   msvc:
-    name: Windows  ${{ matrix.config }} ${{ matrix.shared && 'Shared' || 'Static' }} ${{ matrix.arch }} ${{ matrix.toolset }}
+    name: Windows  ${{ matrix.generator }}
     uses: ./.github/workflows/reusable-build-and-test.yml
     with:
       generator: ${{ matrix.generator }}
