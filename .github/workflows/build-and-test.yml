@@ -21,6 +21,7 @@ jobs:
       cxx-compiler: ${{ matrix.compiler.cxx }}
 
     strategy:
+      fail-fast: false
       matrix:
         generator: ["Visual Studio 17 2022", "Ninja Multi-Config"]
         shared: [true, false]
