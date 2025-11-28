@@ -61,6 +61,13 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
+    - name: Set Visual Studio Architecture
+      if: runner.os == 'Windows' && inputs.generator == 'Ninja Multi-Config' && inputs.c-compiler != 'gcc'
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ inputs.arch == 'arm64' && 'amd64_arm64' ||  inputs.arch }}
+
+
     - name: Get CMake and Ninja
       uses: lukka/get-cmake@v4.2.0
       with:
