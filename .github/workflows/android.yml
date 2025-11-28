@@ -62,32 +62,13 @@ jobs:
       - name: Build Android example
         run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ matrix.arch }} -P MIN_SDK=${{ matrix.api }}
 
-      - name: Create Virtual Device (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          echo "no" | sudo avdmanager ${{ env.AVD_COMMAND }} -p $HOME/.android/avd
-          avdmanager list avd
-          ls -a /home/runner/.android/avd
-
-      - name: Create Virtual Device (Windows)
-        if: runner.os == 'Windows'
-        run: echo no | $ANDROID_SDK_ROOT\cmdline-tools\16.0\bin\avdmanager.bat ${{ env.AVD_COMMAND }}
-      
-      - name: Start virtual device (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          $ANDROID_SDK_ROOT/emulator/emulator -verbose -list-avds
-          nohup $ANDROID_SDK_ROOT/emulator/emulator ${{ env.EMULATOR_COMMAND }} &
-
-      - name: Start virtual device (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          start "" %ANDROID_SDK_ROOT%\emulator\emulator.exe ${{ env.EMULATOR_COMMAND }}
-
-      - name: Wait for device boot
-        run: $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done;'
-
-      - name: Test
-        run: |
-          cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target prepare-android-files
-          ctest --test-dir build --output-on-failure -C ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }}
+      - name: run tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: default
+          arch: ${{ matrix.arch }}
+          ndk: ${{ env.ANDROID_NDK_VERSION }}
+          script: |
+            cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target prepare-android-files
+            ctest --test-dir build --output-on-failure -C ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }}
