@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-24.04]
+        platform: [ubuntu-24.04, macos-15]
         arch: [x86_64]
         api: [21]
         config: [Debug]
