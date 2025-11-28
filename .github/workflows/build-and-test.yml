@@ -36,3 +36,7 @@ jobs:
         exclude:
           - arch: arm
             generator: "Visual Studio 17 2022"
+          - compiler:
+              c: "gcc"
+              cxx: "g++"
+            generator: "Visual Studio 17 2022"
