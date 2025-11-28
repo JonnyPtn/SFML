@@ -63,12 +63,13 @@ jobs:
         run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ matrix.arch }} -P MIN_SDK=${{ matrix.api }}
 
       - name: run tests
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@latest
         with:
           api-level: ${{ matrix.api }}
           target: default
           arch: ${{ matrix.arch }}
           ndk: ${{ env.ANDROID_NDK_VERSION }}
+          emulator-options: ""
           script: |
             cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target prepare-android-files
             ctest --test-dir build --output-on-failure -C ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }}
