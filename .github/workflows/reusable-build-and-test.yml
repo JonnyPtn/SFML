@@ -154,7 +154,7 @@ jobs:
         cmake --preset dev 
         -DCMAKE_VERBOSE_MAKEFILE=ON 
         -DBUILD_SHARED_LIBS=${{ inputs.build-shared }}
-        -DSFML_USE_MESA3D=${{ runner.os == 'Windows'}} 
+        -DSFML_USE_MESA3D=${{ runner.os == 'Windows' && inputs.arch != 'arm' }} 
         -DCMAKE_C_COMPILER=${{ inputs.c-compiler }}
         -DCMAKE_CXX_COMPILER=${{ inputs.cxx-compiler }}
         -DCMAKE_USE_SYSTEM_DEPS=${{ inputs.use-system-deps }}
