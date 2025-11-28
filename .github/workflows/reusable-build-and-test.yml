@@ -155,7 +155,7 @@ jobs:
         -DSFML_USE_MESA3D=${{ runner.os == 'Windows'}} 
         -DCMAKE_C_COMPILER=${{ inputs.c-compiler }}
         -DCMAKE_CXX_COMPILER=${{ inputs.cxx-compiler }}
-        ${{ contains(inputs.generator, 'Visual Studio') && ('-A' || inputs.arch) || '' }}
+        ${{ contains(inputs.generator, 'Visual Studio') && format('-A {}', inputs.arch) || '' }}
         ${{ inputs.cmake-flags }}
     - name: Build
       run: cmake --build build --config ${{ inputs.config }} --target install
