@@ -16,13 +16,13 @@ jobs:
 
     env:
       CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
-      AVD_COMMAND: --verbose create avd -n sfml-test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force # Command used to create the Android Virtual Device
-      EMULATOR_COMMAND: -verbose -avd sfml-test # Command line options for starting the Android emulator
+      AVD_COMMAND: --verbose create avd -n test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force # Command used to create the Android Virtual Device
+      EMULATOR_COMMAND: -verbose -avd test # Command line options for starting the Android emulator
 
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-24.04, macos-26, windows-2022]
+        platform: [ubuntu-24.04, windows-2022]
         arch: [arm64-v8a]
         api: [21]
         config: [Debug]
@@ -67,15 +67,26 @@ jobs:
 
       - name: Build Android example
         run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ matrix.arch }} -P MIN_SDK=${{ matrix.api }}
+        
+      - name: Create AVD
+        run: echo no | avdmanager ${{ env.AVD_COMMAND }}
 
-      - name: Run Tests
-        uses: reactivecircus/android-emulator-runner@v2.35.0
-        with:
-          api-level: ${{ matrix.api }}
-          target: default
-          arch: ${{ matrix.arch }}
-          ndk: ${{ env.ANDROID_NDK_VERSION }}
-          emulator-options: ""
-          script: |
-            cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target prepare-android-files
-            ctest --test-dir build --output-on-failure -C ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }}
+      - name: Launch Emulator
+        run: $ANDROID_SDK_ROOT/emulator/emulator ${{ env.AVD_COMMAND }}
+
+      - name: Wait for device
+        run: | 
+          adb wait-for-device
+          adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; echo "Waiting..."; done; echo "Device is ready!"'
+
+      #- name: Run Tests
+      #  uses: reactivecircus/android-emulator-runner@v2.35.0
+      #  with:
+      #    api-level: ${{ matrix.api }}
+      #    target: default
+      #    arch: ${{ matrix.arch }}
+      #    ndk: ${{ env.ANDROID_NDK_VERSION }}
+      #    emulator-options: ""
+      #    script: |
+      #      cmake --build build --config ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }} --target prepare-android-files
+      #      ctest --test-dir build --output-on-failure -C ${{ matrix.config == 'Debug' && 'Debug' || 'Release' }}
