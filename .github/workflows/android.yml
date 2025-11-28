@@ -17,7 +17,7 @@ jobs:
     env:
       CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
       AVD_COMMAND: --verbose create avd -n test -k "system-images;android-${{ matrix.api }};default;${{ matrix.arch }}" --force # Command used to create the Android Virtual Device
-      EMULATOR_COMMAND: -verbose -avd test # Command line options for starting the Android emulator
+      EMULATOR_COMMAND: -avd test # Command line options for starting the Android emulator
 
     strategy:
       fail-fast: false
