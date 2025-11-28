@@ -112,6 +112,8 @@ if(SFML_OS_ANDROID)
             # Find it in the ndk first. It's located in a path specific to both host and target arch
             if(CMAKE_HOST_WIN32)
                 set(HOST_FOLDER "windows-x86_64")
+            elseif(CMAKE_HOST_APPLE)
+                set(HOST_FOLDER "darwin-x86_64")
             else()
                 set(HOST_FOLDER "linux-x86_64")
             endif()
