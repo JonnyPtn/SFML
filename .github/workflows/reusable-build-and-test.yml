@@ -1,0 +1,222 @@
+name: Reusable Build and Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      generator:
+        required: false
+        type: string
+        default: 'Ninja'
+      config:
+        required: true
+        type: string
+      build-shared:
+        required: true
+        type: boolean
+      cmake-system-name:
+        required: false
+        type: string
+      cmake-flags:
+        required: false
+        type: string
+      runner:
+        required: true
+        type: string
+      use-system-deps:
+        required: false
+        type: boolean
+        default: false
+      c-compiler:
+        required: true
+        type: string
+      cxx-compiler:
+        required: true
+        type: string
+      arch:
+        required: false
+        type: string
+      android-api:
+        required: false
+        type: string
+      
+
+env:
+  DISPLAY: ":99" # Display number to use for the X server
+  GALLIUM_DRIVER: llvmpipe # Use Mesa 3D software OpenGL renderer
+  ANDROID_NDK_VERSION: "26.1.10909125" # Android NDK version to use
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    name: ${{ inputs.generator }} ${{ inputs.config }} on ${{ inputs.runner }}
+
+    env:
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
+      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1" # Work around Homebrew errors within coverallsapp/github-action@v2
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set Visual Studio Architecture
+      if: runner.os == 'Windows' && inputs.generator == 'Ninja' && inputs.c-compiler != 'gcc'
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ inputs.arch == 'arm' && 'amd64_arm64' || contains(inputs.arch, 'win32') && 'x86' || inputs.arch }}
+
+
+    - name: Get CMake and Ninja
+      uses: lukka/get-cmake@v4.2.0
+      with:
+        cmakeVersion: 3.28
+        ninjaVersion: latest
+
+    - name: Install Linux Dependencies and Tools
+      if: runner.os == 'Linux'
+      run: |
+        CLANG_VERSION=$(clang++ --version | sed -n 's/.*version \([0-9]\+\)\..*/\1/p')
+        echo "CLANG_VERSION=$CLANG_VERSION" >> $GITHUB_ENV
+        sudo apt-get update
+        sudo apt-get install xorg-dev libharfbuzz-dev libxrandr-dev libxcursor-dev libxi-dev libudev-dev libflac-dev libvorbis-dev libgl1-mesa-dev libegl1-mesa-dev libdrm-dev libgbm-dev xvfb fluxbox ccache gcovr ${{ runner.os == 'linux' && inputs.c-compiler == 'clang' && 'llvm-$CLANG_VERSION' || '' }}
+
+    - name: Install Android Components
+      if: inputs.cmake-system-name == 'Android'
+      run: |
+        echo "y" | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "build-tools;33.0.2"
+        echo "y" | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
+        ANDROID_NDK_ROOT=$(echo $ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION)
+        echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> $GITHUB_ENV
+
+    - name: Install macOS Tools
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install gcovr ccache || true
+
+    - name: Install macOS System Deps
+      if: inputs.use-system-deps == true && runner.os == 'macOS'
+      run: brew install flac libvorbis || true
+
+    - name: Setup CCache
+      uses: hendrikmuhs/ccache-action@v1.2.12
+      with:
+        verbose: 2
+        key: ${{ inputs }}
+
+    - name: Install Gcovr for MinGW
+      if: inputs.config == 'Debug' && inputs.c-compiler == 'gcc' && runner.os == 'Windows'
+      uses: threeal/pipx-install-action@v1.0.0
+      with:
+        packages: gcovr
+
+    - name: Install OpenCppCoverage
+      uses: nick-fields/retry@v3
+      if: inputs.config == 'Debug' && runner.os == 'Windows'
+      with:
+        max_attempts: 10
+        timeout_minutes: 3
+        command: choco install OpenCppCoverage -y
+
+    - name: Cache MinGW
+      if: runner.os == 'Windows' && inputs.c-compiler == 'gcc'
+      id: mingw-cache
+      uses: actions/cache@v4
+      with:
+        path: "C:\\Program Files\\mingw64"
+        key: winlibs-x86_64-posix-seh-gcc-14.2.0-llvm-19.1.7-mingw-w64msvcrt-12.0.0-r3
+
+    - name: Install MinGW
+      if: runner.os == 'Windows' && inputs.c-compiler == 'gcc' && steps.mingw-cache.outputs.cache-hit != 'true'
+      run: |
+        curl -Lo mingw64.zip https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.7-12.0.0-msvcrt-r3/winlibs-x86_64-posix-seh-gcc-14.2.0-llvm-19.1.7-mingw-w64msvcrt-12.0.0-r3.zip
+        unzip -qq -d "C:\Program Files" mingw64.zip
+
+    - name: Add OpenCppCoverage and MinGW to PATH and remove MinGW-supplied CCache & CMake
+      if: runner.os == 'Windows'
+      run: |
+        echo "C:\Program Files\OpenCppCoverage" >> $GITHUB_PATH
+        echo "C:\Program Files\mingw64\bin" >> $GITHUB_PATH
+        rm -f "C:\Program Files\mingw64\bin\ccache.exe"
+        echo "Using $(which ccache)"
+        ccache --version
+        rm -f "C:\Program Files\mingw64\bin\cmake.exe"
+        echo "Using $(which cmake)"
+        cmake --version
+
+    - name: Configure CMake
+      run: >
+        cmake --preset dev 
+        -DCMAKE_VERBOSE_MAKEFILE=ON 
+        -DBUILD_SHARED_LIBS=${{ inputs.build-shared }}
+        -DSFML_USE_MESA3D=${{ runner.os == 'Windows'}} 
+        -DCMAKE_C_COMPILER=${{ inputs.c-compiler }}
+        -DCMAKE_CXX_COMPILER=${{ inputs.cxx-compiler }}
+        ${{ contains(inputs.generator, 'Visual Studio') && ('-A' || inputs.arch) || '' }}
+        ${{ inputs.cmake-flags }}
+    - name: Build
+      run: cmake --build build --config ${{ inputs.config }} --target install
+
+    - name: Build Android example
+      if: inputs.cmake-system-name == 'Android'
+      run: examples/android/gradlew ${{ inputs.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ inputs.arch }} -P MIN_SDK=${{ inputs.android-api }}
+ 
+    - name: Prepare Test
+      run: |
+        set -e
+        # Start up Xvfb and fluxbox to host display tests
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          Xvfb $DISPLAY -screen 0 1920x1080x24 &
+          sleep 5
+          fluxbox > /dev/null 2>&1 &
+          sleep 5
+        fi
+        # Make sure the build/bin directory exists so that the find command does not fail if no executables are built
+        mkdir -p build/bin
+        # Make use of a test to print OpenGL vendor/renderer/version info to the console
+        find build/bin -name test-sfml-window -or -name test-sfml-window.exe -exec sh -c "{} *sf::Context* --section=\"Version String\" --success | grep OpenGL" \;
+
+    - name: Test (Windows/Linux/macOS/MinGW)
+      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
+      run: |
+        cmake --build build --target runtests --config ${{ inputs.config }}
+
+    - name: Extract coverage (Linux/macOS/MinGW)
+      if: (runner.os != 'Windows' || inputs.c-compiler == 'gcc') && inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
+      run: |
+        # Run gcovr to extract coverage information from the test run
+        if [ "${{ inputs.config }}" == "Debug" ]; then
+          gcovr -r $GITHUB_WORKSPACE -x build/coverage.out -s -f 'src/SFML/.*' -f 'include/SFML/.*' ${{ runner.os == 'Linux' && inputs.c-compiler == 'clang' && '--gcov-executable="llvm-cov-$CLANG_VERSION gcov"' || '' }} $GITHUB_WORKSPACE
+        fi
+        ls build/
+
+    - name: Upload Coverage Report to Coveralls
+      if: inputs.config == 'Debug' && github.repository == 'SFML/SFML' && inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'  && inputs.arch != 'arm64' # Disable upload in forks
+      uses: coverallsapp/github-action@v2
+      with:
+        file: ./build/coverage.out
+        flag-name: ${{ inputs }}
+        parallel: true
+        allow-empty: true
+        base-path: ${{ github.workspace }}
+
+    - name: Test Install Interface
+      if: inputs.cmake-system-name != 'Android'
+      run: |
+        cmake -S test/install -B test/install/build -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/build/install -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=${{ inputs.debug && 'Debug' || 'Release' }} ${{ inputs.cmake-flags }}
+        cmake --build test/install/build --config ${{ inputs.config }}
+
+  coverage:
+    name: Finalize Coverage Upload
+    needs: build
+    runs-on: ubuntu-24.04
+    if: github.repository == 'SFML/SFML' # Disable upload in forks
+
+    steps:
+    - name: Coveralls Finished
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel-finished: true

@@ -1,0 +1,38 @@
+name: Build and test
+
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: environment-${{github.ref}}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  msvc:
+    name: Windows  ${{ matrix.config }} ${{ matrix.shared && 'Shared' || 'Static' }} ${{ matrix.arch }} ${{ matrix.toolset }}
+    uses: ./.github/workflows/reusable-build-and-test.yml
+    with:
+      generator: ${{ matrix.generator }}
+      config: ${{ matrix.config }}
+      arch: ${{ matrix.arch }}
+      runner: "windows-2025"
+      use-system-deps: false
+      build-shared: ${{ matrix.shared }}
+      c-compiler: ${{ matrix.compiler.c }}
+      cxx-compiler: ${{ matrix.compiler.cxx }}
+
+    strategy:
+      matrix:
+        generator: ["Visual Studio 17 2022", "Ninja"]
+        config: [Debug, Release]
+        shared: [true, false]
+        arch: [x64, win32, arm]
+        compiler:
+          [
+            { c: "cl", cxx: "cl" },
+            { c: "clang", cxx: "clang++" },
+            { c: "gcc", cxx: "g++" },
+          ]
