@@ -55,7 +55,7 @@ defaults:
 jobs:
   build:
     runs-on: ${{ inputs.runner }}
-    name: ${{ inputs.generator }} ${{ inputs.config }} on ${{ inputs.runner }}
+    name: ${{ inputs.name}}
 
     env:
       CMAKE_CXX_COMPILER_LAUNCHER: ccache # Use ccache to cache C++ compiler output
