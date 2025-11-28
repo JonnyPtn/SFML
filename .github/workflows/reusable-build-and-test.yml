@@ -155,7 +155,6 @@ jobs:
         -DCMAKE_C_COMPILER=${{ inputs.c-compiler }}
         -DCMAKE_CXX_COMPILER=${{ inputs.cxx-compiler }}
         -DCMAKE_USE_SYSTEM_DEPS=${{ inputs.use-system-deps }}
-        -DSFML_BUILD_TEST_SUITE=${{ inputs.arch != 'arm64' }}}}
         -G"${{ inputs.generator }}"
         ${{ contains(inputs.generator, 'Visual Studio') && format('-A {0}', inputs.arch) || '' }}
         ${{ (contains(inputs.generator, 'Visual Studio') && inputs.c-compiler == 'clang') && '-T ClangCL' || '' }}
@@ -181,7 +180,7 @@ jobs:
 
 
     - name: Test Debug (Windows/Linux/macOS/MinGW)
-      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android' && inputs.arch != 'arm64'
+      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
       run: |
         cmake --build build --target runtests --config Debug
 
@@ -193,7 +192,7 @@ jobs:
         ls build/
 
     - name: Upload Coverage Report to Coveralls
-      if:  github.repository == 'SFML/SFML' && inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'  && inputs.arch != 'arm64'
+      if:  github.repository == 'SFML/SFML' && inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
       uses: coverallsapp/github-action@v2
       with:
         file: ./build/coverage.out
@@ -206,7 +205,7 @@ jobs:
       run: cmake --build build --config Release --target install
 
     - name: Test Release (Windows/Linux/macOS/MinGW)
-      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android' && inputs.arch != 'arm64'
+      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
       run: |
         cmake --build build --target runtests --config Debug
 

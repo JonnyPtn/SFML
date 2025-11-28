@@ -7,8 +7,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  windows:
-    name: Windows  ${{ matrix.generator }}
+  windows-x86:
+    name: Windows x86/64 ${{ matrix.generator }}
     uses: ./.github/workflows/reusable-build-and-test.yml
     with:
       name: ${{ matrix.shared && 'Shared' || 'Static' }} ${{ matrix.arch }} ${{ matrix.compiler.cxx }}
@@ -25,7 +25,37 @@ jobs:
       matrix:
         generator: ["Visual Studio 17 2022", "Ninja Multi-Config"]
         shared: [true, false]
-        arch: [x64, win32, arm64]
+        arch: [x64, win32]
+        compiler:
+          [
+            { c: "cl", cxx: "cl" },
+            { c: "clang", cxx: "clang++" },
+            { c: "gcc", cxx: "g++" },
+          ]
+        exclude:
+          - compiler:
+              c: "gcc"
+              cxx: "g++"
+            generator: "Visual Studio 17 2022"
+
+  windows-arm:
+    name: Windows arm64 ${{ matrix.generator }}
+    uses: ./.github/workflows/reusable-build-and-test.yml
+    with:
+      name: ${{ matrix.shared && 'Shared' || 'Static' }} ${{ matrix.arch }} ${{ matrix.compiler.cxx }}
+      generator: ${{ matrix.generator }}
+      arch: arm64
+      runner: "windows-11-arm"
+      use-system-deps: false
+      build-shared: ${{ matrix.shared }}
+      c-compiler: ${{ matrix.compiler.c }}
+      cxx-compiler: ${{ matrix.compiler.cxx }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        generator: ["Visual Studio 17 2022", "Ninja Multi-Config"]
+        shared: [true, false]
         compiler:
           [
             { c: "cl", cxx: "cl" },
