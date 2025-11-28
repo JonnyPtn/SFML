@@ -62,8 +62,8 @@ jobs:
       - name: Build Android example
         run: examples/android/gradlew ${{ matrix.config == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{ matrix.arch }} -P MIN_SDK=${{ matrix.api }}
 
-      - name: run tests
-        uses: reactivecircus/android-emulator-runner@latest
+      - name: Run Tests
+        uses: reactivecircus/android-emulator-runner@2.35.0
         with:
           api-level: ${{ matrix.api }}
           target: default
