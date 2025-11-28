@@ -25,7 +25,7 @@ jobs:
       matrix:
         generator: ["Visual Studio 17 2022", "Ninja Multi-Config"]
         shared: [true, false]
-        arch: [x64, x86, arm64]
+        arch: [x64, win32, arm64]
         compiler:
           [
             { c: "cl", cxx: "cl" },
