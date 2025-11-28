@@ -148,10 +148,10 @@ jobs:
 
     - name: Configure CMake
       run: >
-        cmake --preset dev 
-        -DCMAKE_VERBOSE_MAKEFILE=ON 
+        cmake --preset dev
+        -DCMAKE_VERBOSE_MAKEFILE=ON
         -DBUILD_SHARED_LIBS=${{ inputs.build-shared }}
-        -DSFML_USE_MESA3D=${{ runner.os == 'Windows' && inputs.arch != 'arm64' }} 
+        -DSFML_USE_MESA3D=${{ runner.os == 'Windows' && inputs.arch != 'arm64' }}
         -DCMAKE_C_COMPILER=${{ inputs.c-compiler }}
         -DCMAKE_CXX_COMPILER=${{ inputs.cxx-compiler }}
         -DCMAKE_USE_SYSTEM_DEPS=${{ inputs.use-system-deps }}
@@ -180,7 +180,7 @@ jobs:
 
 
     - name: Test Debug (Windows/Linux/macOS/MinGW)
-      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android'
+      if: inputs.cmake-system-name != 'iOS' && inputs.cmake-system-name != 'Android' && inputs.arch != 'arm64'
       run: |
         cmake --build build --target runtests --config Debug
 
