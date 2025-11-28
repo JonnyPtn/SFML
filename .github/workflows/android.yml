@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-24.04, macos-15]
-        arch: [x86_64]
+        arch: [arm64-v8a]
         api: [21]
         config: [Debug]
         stl_type: [c++_shared]
