@@ -72,7 +72,7 @@ jobs:
         run: echo no | avdmanager ${{ env.AVD_COMMAND }}
 
       - name: Launch Emulator
-        run: $ANDROID_SDK_ROOT/emulator/emulator ${{ env.AVD_COMMAND }}
+        run: $ANDROID_SDK_ROOT/emulator/emulator ${{ env.EMULATOR_COMMAND }}
 
       - name: Wait for device
         run: | 
