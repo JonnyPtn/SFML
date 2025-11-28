@@ -22,8 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-24.04, windows-2022]
-        arch: [arm64-v8a]
+        platform: [windows-2022]
+        arch: [x86_64]
         api: [21]
         config: [Debug]
         stl_type: [c++_shared]
@@ -72,7 +72,7 @@ jobs:
         run: echo no | avdmanager ${{ env.AVD_COMMAND }}
 
       - name: Launch Emulator
-        run: $ANDROID_SDK_ROOT/emulator/emulator ${{ env.EMULATOR_COMMAND }}
+        run: ${{ env.ANDROID_SDK_ROOT }}/emulator/emulator ${{ env.EMULATOR_COMMAND }}
 
       - name: Wait for device
         run: | 
