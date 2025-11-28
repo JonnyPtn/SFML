@@ -158,7 +158,7 @@ jobs:
         -DCMAKE_C_COMPILER=${{ inputs.c-compiler }}
         -DCMAKE_CXX_COMPILER=${{ inputs.cxx-compiler }}
         -DCMAKE_USE_SYSTEM_DEPS=${{ inputs.use-system-deps }}
-        -G${{ inputs.generator }}
+        -G"${{ inputs.generator }}"
         ${{ contains(inputs.generator, 'Visual Studio') && format('-A {0}', inputs.arch) || '' }}
         ${{ (contains(inputs.generator, 'Visual Studio') && inputs.c-compiler == 'clang') && '-T ClangCL' || '' }}
         ${{ inputs.cmake-flags }}
