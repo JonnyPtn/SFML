@@ -28,7 +28,7 @@ jobs:
         compiler:
           [
             { c: "cl", cxx: "cl" },
-            { c: "clang-cl", cxx: "clang-cl++" },
+            { c: "clang-cl", cxx: "clang-cl" },
             { c: "gcc", cxx: "g++" },
           ]
         exclude:
