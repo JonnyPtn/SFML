@@ -72,8 +72,7 @@ jobs:
         run: echo no | avdmanager ${{ env.AVD_COMMAND }}
 
       - name: Launch Emulator
-        shell: bash
-        run: nohup ${{ env.ANDROID_SDK_ROOT }}/emulator/emulator ${{ env.EMULATOR_COMMAND }} &
+        run: Start-Job -ScriptBlock { & ${{ env.ANDROID_SDK_ROOT }}/emulator/emulator ${{ env.EMULATOR_COMMAND }} }
 
       - name: Wait for device
         run: | 
