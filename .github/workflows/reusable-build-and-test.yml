@@ -225,6 +225,8 @@ jobs:
         -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/build/install 
         -DCMAKE_VERBOSE_MAKEFILE=ON 
         -DBUILD_SHARED_LIBS=${{ inputs.build-shared }}
+        ${{ contains(inputs.generator, 'Visual Studio') && format('-A {0}', inputs.arch) || '' }}
+        ${{ (contains(inputs.generator, 'Visual Studio') && inputs.c-compiler == 'clang') && '-T ClangCL' || '' }}
         ${{ inputs.cmake-flags }}
 
     - name: Test Install Interface Debug Build
