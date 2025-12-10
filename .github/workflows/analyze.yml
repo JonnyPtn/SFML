@@ -1,6 +1,6 @@
 name: Analyze and Sanitize
 
-on: [push, pull_request, workflow_dispatch]
+on: workflow_call
 
 concurrency:
   group: ${{ github.workflow }}-${{github.ref}}
