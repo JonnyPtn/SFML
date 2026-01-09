@@ -81,6 +81,11 @@ public:
         return m_default;
     }
 
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the position of this monitor
+    ////////////////////////////////////////////////////////////
+    Vector2i getPosition() const;
+
 private:
 
     String m_name; ///< The name of the monitor

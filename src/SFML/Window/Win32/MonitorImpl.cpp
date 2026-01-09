@@ -77,4 +77,28 @@ std::vector<VideoMode> Monitor::getVideoModes() const
     }
     return modes;
 }
+
+Vector2i Monitor::getPosition() const
+{
+	struct Param
+	{
+        Vector2i pos;
+        const Monitor* monitor;
+	} param;
+    param.monitor = this;
+    EnumDisplayMonitors(NULL, NULL, [](HMONITOR monitor, HDC, LPRECT, LPARAM pos)->BOOL
+    {
+        auto&          param = *(Param*)pos;
+        MONITORINFOEX info{};
+        info.cbSize = sizeof(info);
+        GetMonitorInfo(monitor, &info);
+		if (info.szDevice == param.monitor->getName())
+		{
+            param.pos = Vector2i(info.rcMonitor.left, info.rcMonitor.top);
+            return false;
+		}
+        return true;
+    }, (LPARAM)&param);
+    return param.pos;
+}
 } // namespace sf

@@ -17,7 +17,9 @@ int main()
     sf::Text notDefaultText(font);
     notDefaultText.setString("This is not the default monitor");
     sf::Text name(font);
-    name.setPosition({0, 100});
+    name.setPosition({0, 50});
+    sf::Text position(font);
+    position.setPosition({0, 100});
 
     while (window.isOpen())
     {
@@ -39,6 +41,8 @@ int main()
         window.clear();
         auto monitor = window.getMonitor();
         name.setString(monitor.getName());
+        auto pos = monitor.getPosition();
+        position.setString('(' + std::to_string(pos.x) + ", " + std::to_string(pos.y) + ')');
         if (monitor.isDefault())
         {
             window.draw(defaultText);
@@ -48,6 +52,7 @@ int main()
             window.draw(notDefaultText);
         }
         window.draw(name);
+        window.draw(position);
         window.display();
     }
 }
