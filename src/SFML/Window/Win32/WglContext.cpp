@@ -25,6 +25,8 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include "SFML/Window/Monitor.hpp"
+
 #include <SFML/Window/ContextSettings.hpp>
 #include <SFML/Window/VideoMode.hpp>
 #include <SFML/Window/Win32/Utils.hpp>
@@ -132,7 +134,10 @@ WglContext::WglContext(WglContext* shared, const ContextSettings& settings, Vect
     m_settings = settings;
 
     // Create the rendering surface (window or pbuffer if supported)
-    createSurface(shared, size, VideoMode::getDesktopMode().bitsPerPixel);
+    const auto monitors = Monitor::getAllMonitors();
+    assert(!monitors.empty() && "Can't find monitor to get pixel depth");
+    const auto mode = monitors.front().getVideoMode();
+    createSurface(shared, size, mode.bitsPerPixel);
 
     // Create the context
     createContext(shared);

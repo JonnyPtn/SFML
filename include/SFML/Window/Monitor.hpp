@@ -27,35 +27,63 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include "SFML/System/String.hpp"
+
 #include <SFML/Window/VideoMode.hpp>
 
-#include <vector>
-
-
-namespace sf::priv
+namespace sf
 {
+namespace priv
+{
+class WindowImplWin32;
+}
+
 ////////////////////////////////////////////////////////////
-/// \brief OS-specific implementation of video modes functions
+/// \brief A Monitor device
 ///
 ////////////////////////////////////////////////////////////
-class VideoModeImpl
+class SFML_WINDOW_API Monitor
 {
 public:
-    ////////////////////////////////////////////////////////////
-    /// \brief Get the list of all the supported fullscreen video modes
-    ///
-    /// \return Array filled with the fullscreen video modes
-    ///
-    ////////////////////////////////////////////////////////////
-    static std::vector<VideoMode> getFullscreenModes();
+
+    Monitor(String name, bool isDefault) : m_name(name), m_default(isDefault)
+    {
+    }
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the current desktop video mode
-    ///
-    /// \return Current desktop video mode
-    ///
+    /// \brief Get the video modes supported by this monitor
     ////////////////////////////////////////////////////////////
-    static VideoMode getDesktopMode();
+    std::vector<VideoMode> getVideoModes() const;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the video mode currently being used
+    ////////////////////////////////////////////////////////////
+    VideoMode getVideoMode() const;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get all the available monitors
+    ////////////////////////////////////////////////////////////
+    static std::vector<Monitor> getAllMonitors();
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the name of this monitor
+    ////////////////////////////////////////////////////////////
+    String getName() const
+    {
+        return m_name;
+    }
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Is this the default monitor
+    ////////////////////////////////////////////////////////////
+    bool isDefault() const
+    {
+        return m_default;
+    }
+
+private:
+
+    String m_name; ///< The name of the monitor
+    bool   m_default; ///< True if this is the default display
 };
-
-} // namespace sf::priv
+} // namespace sf

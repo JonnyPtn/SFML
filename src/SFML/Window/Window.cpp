@@ -25,6 +25,8 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include "SFML/Window/Monitor.hpp"
+
 #include <SFML/Window/GlContext.hpp>
 #include <SFML/Window/Window.hpp>
 #include <SFML/Window/WindowImpl.hpp>
@@ -122,6 +124,11 @@ void Window::create(WindowHandle handle)
 ////////////////////////////////////////////////////////////
 void Window::create(WindowHandle handle, const ContextSettings& settings)
 {
+    // Ensure we have a monitor with video modes
+    const auto monitors = Monitor::getAllMonitors();
+    assert(!monitors.empty());
+    const auto mode    = monitors.front().getVideoMode();
+        
     // Ensure the open window is closed first
     close();
 
@@ -129,7 +136,7 @@ void Window::create(WindowHandle handle, const ContextSettings& settings)
     m_impl = priv::WindowImpl::create(handle);
 
     // Recreate the context
-    m_context = priv::GlContext::create(settings, *m_impl, VideoMode::getDesktopMode().bitsPerPixel);
+    m_context = priv::GlContext::create(settings, *m_impl, mode.bitsPerPixel);
 
     // Perform common initializations
     initialize();

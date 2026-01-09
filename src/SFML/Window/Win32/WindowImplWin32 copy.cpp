@@ -293,16 +293,6 @@ WindowImplWin32::~WindowImplWin32()
     }
 }
 
-////////////////////////////////////////////////////////////
-Monitor WindowImplWin32::getMonitor() const
-{
-    auto hmonitor = MonitorFromWindow(m_handle, MONITOR_DEFAULTTONEAREST);
-    MONITORINFOEX info{};
-    info.cbSize = sizeof(info);
-    GetMonitorInfo(hmonitor, &info);
-    return {info.szDevice, (info.dwFlags & MONITORINFOF_PRIMARY) != 0};
-}
-
 
 ////////////////////////////////////////////////////////////
 WindowHandle WindowImplWin32::getNativeHandle() const

@@ -40,13 +40,13 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
         SECTION("Mode and title constructor")
         {
             {
-                const sf::WindowBase windowBase(sf::VideoMode({360, 240}), "");
+                const sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "");
                 CHECK(windowBase.isOpen());
                 CHECK(windowBase.getSize() == sf::Vector2u(360, 240));
                 CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
             }
             {
-                const sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests");
+                const sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests");
                 CHECK(windowBase.isOpen());
                 CHECK(windowBase.getSize() == sf::Vector2u(360, 240));
                 CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -55,7 +55,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Mode, title, and style constructor")
         {
-            const sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests", sf::Style::Resize);
+            const sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests", sf::Style::Resize);
             CHECK(windowBase.isOpen());
             CHECK(windowBase.getSize() == sf::Vector2u(360, 240));
             CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -63,7 +63,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Mode, title, style, and state constructor")
         {
-            const sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests", sf::Style::Resize, sf::State::Windowed);
+            const sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests", sf::Style::Resize, sf::State::Windowed);
             CHECK(windowBase.isOpen());
             CHECK(windowBase.getSize() == sf::Vector2u(360, 240));
             CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -71,7 +71,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Mode, title, and state constructor")
         {
-            const sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests", sf::State::Windowed);
+            const sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests", sf::State::Windowed);
             CHECK(windowBase.isOpen());
             CHECK(windowBase.getSize() == sf::Vector2u(360, 240));
             CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -84,7 +84,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Mode and title")
         {
-            windowBase.create(sf::VideoMode({240, 360}), "WindowBase Tests");
+            windowBase.create(sf::VideoMode{{240, 360}}, "WindowBase Tests");
             CHECK(windowBase.isOpen());
             CHECK(windowBase.getSize() == sf::Vector2u(240, 360));
             CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -92,7 +92,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Mode, title, and style")
         {
-            windowBase.create(sf::VideoMode({240, 360}), "WindowBase Tests", sf::Style::Resize);
+            windowBase.create(sf::VideoMode{{240, 360}}, "WindowBase Tests", sf::Style::Resize);
             CHECK(windowBase.isOpen());
             CHECK(windowBase.getSize() == sf::Vector2u(240, 360));
             CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -100,7 +100,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Mode, title, and state")
         {
-            windowBase.create(sf::VideoMode({240, 360}), "WindowBase Tests", sf::State::Windowed);
+            windowBase.create(sf::VideoMode{{240, 360}}, "WindowBase Tests", sf::State::Windowed);
             CHECK(windowBase.isOpen());
             CHECK(windowBase.getSize() == sf::Vector2u(240, 360));
             CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -108,7 +108,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Mode, title, style, and state")
         {
-            windowBase.create(sf::VideoMode({240, 360}), "WindowBase Tests", sf::Style::Resize, sf::State::Windowed);
+            windowBase.create(sf::VideoMode{{240, 360}}, "WindowBase Tests", sf::Style::Resize, sf::State::Windowed);
             CHECK(windowBase.isOpen());
             CHECK(windowBase.getSize() == sf::Vector2u(240, 360));
             CHECK(windowBase.getNativeHandle() != sf::WindowHandle());
@@ -117,7 +117,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
     SECTION("close()")
     {
-        sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests");
+        sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests");
         windowBase.close();
         CHECK(!windowBase.isOpen());
     }
@@ -141,7 +141,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Initialized window")
         {
-            sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests");
+            sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests");
 
             constexpr auto timeout = sf::milliseconds(100);
 
@@ -176,14 +176,14 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Initialized window")
         {
-            sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests");
+            sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests");
             windowBase.setSize({128, 256});
             CHECK(windowBase.getSize() == sf::Vector2u(128, 256));
         }
 
         SECTION("Minimum size")
         {
-            sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests");
+            sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests");
             windowBase.setMinimumSize(sf::Vector2u(128, 256));
             windowBase.setSize({100, 100});
             CHECK(windowBase.getSize() == sf::Vector2u(128, 256));
@@ -191,7 +191,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
         SECTION("Maximum size")
         {
-            sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests");
+            sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests");
             windowBase.setMaximumSize(sf::Vector2u(128, 256));
             windowBase.setSize({400, 400});
             CHECK(windowBase.getSize() == sf::Vector2u(128, 256));
@@ -200,7 +200,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
     SECTION("setMinimumSize()")
     {
-        sf::WindowBase windowBase(sf::VideoMode({100, 100}), "WindowBase Tests", sf::Style::Default ^ sf::Style::Resize);
+        sf::WindowBase windowBase(sf::VideoMode{{100, 100}}, "WindowBase Tests", sf::Style::Default ^ sf::Style::Resize);
         windowBase.setMinimumSize(sf::Vector2u(200, 300));
         CHECK(windowBase.getSize() == sf::Vector2u(200, 300));
         windowBase.setMaximumSize(sf::Vector2u(200, 300));
@@ -208,7 +208,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
 
     SECTION("setMinimumSize()")
     {
-        sf::WindowBase windowBase(sf::VideoMode({400, 400}), "WindowBase Tests", sf::Style::Default ^ sf::Style::Resize);
+        sf::WindowBase windowBase(sf::VideoMode{{400, 400}}, "WindowBase Tests", sf::Style::Default ^ sf::Style::Resize);
         windowBase.setMaximumSize(sf::Vector2u(200, 300));
         CHECK(windowBase.getSize() == sf::Vector2u(200, 300));
         windowBase.setMinimumSize(sf::Vector2u(200, 300));
@@ -219,7 +219,7 @@ TEST_CASE("[Window] sf::WindowBase", runDisplayTests())
     // assertions we have nothing to gain by running it anyways
     (void)[]
     {
-        sf::WindowBase windowBase(sf::VideoMode({360, 240}), "WindowBase Tests");
+        sf::WindowBase windowBase(sf::VideoMode{{360, 240}}, "WindowBase Tests");
 
         // Should compile if user provides only a specific handler
         windowBase.handleEvents([](const sf::Event::Closed&) {});

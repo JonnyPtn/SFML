@@ -45,8 +45,9 @@
 namespace sf
 {
 class Cursor;
+class Monitor;
 class String;
-class VideoMode;
+struct VideoMode;
 
 namespace priv
 {
@@ -547,6 +548,11 @@ public:
     ///
     ////////////////////////////////////////////////////////////
     [[nodiscard]] WindowHandle getNativeHandle() const;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the Monitor which most of this window covers
+    ////////////////////////////////////////////////////////////
+    [[nodiscard]] Monitor getMonitor() const;
 
     ////////////////////////////////////////////////////////////
     /// \brief Create a Vulkan rendering surface

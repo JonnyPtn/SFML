@@ -640,7 +640,7 @@ struct DemoText
 ////////////////////////////////////////////////////////////
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode({windowWidth, 800u}), "SFML Text", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode{{windowWidth, 800u}}, "SFML Text", sf::Style::Titlebar | sf::Style::Close);
     window.setVerticalSyncEnabled(true);
 
     const sf::Font font(resourcesDir() / "tuffy.ttf");

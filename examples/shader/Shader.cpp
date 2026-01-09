@@ -385,7 +385,7 @@ int main()
     }
 
     // Create the main window
-    sf::RenderWindow window(sf::VideoMode({800, 600}), "SFML Shader", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode{{800, 600}}, "SFML Shader", sf::Style::Titlebar | sf::Style::Close);
     window.setVerticalSyncEnabled(true);
 
     // Open the application font

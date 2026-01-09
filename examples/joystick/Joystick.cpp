@@ -179,7 +179,7 @@ std::array<JoystickDisplay, sf::Joystick::Count> joysticks;
 int main()
 {
     // Create the window of the application
-    sf::RenderWindow window(sf::VideoMode({400, 775}), "Joystick", sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode{{400, 775}}, "Joystick", sf::Style::Close);
     window.setVerticalSyncEnabled(true);
 
     // Open the text font

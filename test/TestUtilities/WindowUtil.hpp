@@ -13,7 +13,7 @@ std::string runDisplayTests();
 // String conversions for Catch2
 namespace sf
 {
-class VideoMode;
+struct VideoMode;
 
 std::ostream& operator<<(std::ostream& os, const VideoMode& videoMode);
 } // namespace sf

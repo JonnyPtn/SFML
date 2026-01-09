@@ -427,7 +427,7 @@ void generateTerrain(sf::Vertex* buffer)
 int main()
 {
     // Create the window of the application
-    sf::RenderWindow window(sf::VideoMode(windowSize), "SFML Island", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode{windowSize}, "SFML Island", sf::Style::Titlebar | sf::Style::Close);
     window.setVerticalSyncEnabled(true);
 
     const sf::Font font("resources/tuffy.ttf");

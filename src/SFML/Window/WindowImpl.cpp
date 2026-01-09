@@ -25,9 +25,11 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/JoystickImpl.hpp>
 #include <SFML/Window/JoystickManager.hpp>
+#include <SFML/Window/Monitor.hpp>
 #include <SFML/Window/SensorManager.hpp>
 #include <SFML/Window/WindowImpl.hpp>
 
@@ -130,13 +132,19 @@ std::unique_ptr<WindowImpl> WindowImpl::create(
             state = State::Windowed;
         }
         // Make sure that the chosen video mode is compatible
-        else if (!mode.isValid())
+        else
         {
-            err() << "The requested video mode is not available, switching to a valid mode" << std::endl;
-            assert(!VideoMode::getFullscreenModes().empty() && "No video modes available");
-            mode = VideoMode::getFullscreenModes()[0];
-            err() << "  VideoMode: { size: { " << mode.size.x << ", " << mode.size.y
-                  << " }, bitsPerPixel: " << mode.bitsPerPixel << " }" << std::endl;
+            const auto monitors = Monitor::getAllMonitors();
+            assert(!monitors.empty() && "No monitors to create window on");
+            const auto modes = monitors.front().getVideoModes();
+            if (std::find(modes.begin(), modes.end(), mode) == modes.end())
+            {
+                err() << "The requested video mode is not available, switching to a valid mode" << std::endl;
+                assert(!modes.empty() && "No video modes available");
+                mode = modes[0];
+                err() << "  VideoMode: { size: { " << mode.size.x << ", " << mode.size.y
+                      << " }, bitsPerPixel: " << mode.bitsPerPixel << " }" << std::endl;
+            }
         }
     }
 

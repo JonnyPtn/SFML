@@ -29,7 +29,7 @@ TEST_CASE("[Graphics] sf::RenderWindow", runDisplayTests())
     {
         SECTION("Style, state, and settings")
         {
-            const sf::RenderWindow window(sf::VideoMode(sf::Vector2u(256, 256), 24),
+            const sf::RenderWindow window(sf::VideoMode{sf::Vector2u(256, 256), 24},
                                           "Window Title",
                                           sf::Style::Default,
                                           sf::State::Windowed,
@@ -48,7 +48,7 @@ TEST_CASE("[Graphics] sf::RenderWindow", runDisplayTests())
 
         SECTION("State and settings")
         {
-            const sf::RenderWindow window(sf::VideoMode(sf::Vector2u(240, 300), 24),
+            const sf::RenderWindow window(sf::VideoMode{sf::Vector2u(240, 300), 24},
                                           "Window Title",
                                           sf::State::Windowed,
                                           sf::ContextSettings{});
@@ -68,7 +68,7 @@ TEST_CASE("[Graphics] sf::RenderWindow", runDisplayTests())
 
     SECTION("Clear")
     {
-        sf::RenderWindow window(sf::VideoMode(sf::Vector2u(256, 256), 24),
+        sf::RenderWindow window(sf::VideoMode{sf::Vector2u(256, 256), 24},
                                 "Window Title",
                                 sf::Style::Default,
                                 sf::State::Windowed,

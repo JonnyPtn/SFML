@@ -146,6 +146,11 @@ public:
     [[nodiscard]] std::optional<Event> pollEvent();
 
     ////////////////////////////////////////////////////////////
+    /// \brief Get the Monitor which most of this window covers
+    ////////////////////////////////////////////////////////////
+    [[nodiscard]] virtual Monitor getMonitor() const = 0;
+
+    ////////////////////////////////////////////////////////////
     /// \brief Get the OS-specific handle of the window
     ///
     /// \return Handle of the window

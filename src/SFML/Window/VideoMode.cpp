@@ -26,51 +26,10 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Window/VideoMode.hpp>
-#include <SFML/Window/VideoModeImpl.hpp>
-
-#include <algorithm>
-#include <functional>
 
 
 namespace sf
 {
-////////////////////////////////////////////////////////////
-VideoMode::VideoMode(Vector2u modeSize, unsigned int modeBitsPerPixel) : size(modeSize), bitsPerPixel(modeBitsPerPixel)
-{
-}
-
-
-////////////////////////////////////////////////////////////
-VideoMode VideoMode::getDesktopMode()
-{
-    // Directly forward to the OS-specific implementation
-    return priv::VideoModeImpl::getDesktopMode();
-}
-
-
-////////////////////////////////////////////////////////////
-const std::vector<VideoMode>& VideoMode::getFullscreenModes()
-{
-    static const auto modes = []
-    {
-        std::vector<VideoMode> result = priv::VideoModeImpl::getFullscreenModes();
-        std::sort(result.begin(), result.end(), std::greater<>());
-        return result;
-    }();
-
-    return modes;
-}
-
-
-////////////////////////////////////////////////////////////
-bool VideoMode::isValid() const
-{
-    const std::vector<VideoMode>& modes = getFullscreenModes();
-
-    return std::find(modes.begin(), modes.end(), *this) != modes.end();
-}
-
-
 ////////////////////////////////////////////////////////////
 bool operator==(const VideoMode& left, const VideoMode& right)
 {

@@ -752,7 +752,7 @@ sf::String textEventDescription(const sf::Event::TextEntered& textEntered)
 int main()
 {
     // Create the main window
-    sf::RenderWindow window(sf::VideoMode({1280, 720}), "Keyboard", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode{{1280, 720}}, "Keyboard", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(25);
 
     // Load sound buffers

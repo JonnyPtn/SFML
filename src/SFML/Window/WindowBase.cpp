@@ -25,6 +25,8 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Window/Monitor.hpp>
+
 #include <SFML/Window/ContextSettings.hpp>
 #include <SFML/Window/Cursor.hpp>
 #include <SFML/Window/Event.hpp>
@@ -336,6 +338,13 @@ void WindowBase::requestFocus()
 bool WindowBase::hasFocus() const
 {
     return m_impl && m_impl->hasFocus();
+}
+
+
+////////////////////////////////////////////////////////////
+Monitor WindowBase::getMonitor() const
+{
+    return m_impl ?  m_impl->getMonitor() : Monitor{"", false};
 }
 
 
