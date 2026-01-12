@@ -138,7 +138,7 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew update
-        brew install gcovr ccache
+        brew install --head gcovr ccache
 
     - name: Install macOS System Deps
       if: contains(matrix.config.name, 'System Deps')
