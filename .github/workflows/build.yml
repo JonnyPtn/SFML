@@ -115,7 +115,7 @@ jobs:
     - name: Get CMake and Ninja
       uses: lukka/get-cmake@latest
       with:
-        cmakeVersion: 3.28
+        cmakeVersion: latest
         ninjaVersion: latest
 
     - name: Install Linux Dependencies and Tools
