@@ -73,3 +73,9 @@ jobs:
     - name: Build
       shell: bash
       run: cmake --build $GITHUB_WORKSPACE/build --config Release --target install ${{matrix.platform.suffix}}
+
+    - name: Test Install Interface
+      if: matrix.platform.name != 'Android'
+      run: |
+        cmake -S test/install -B test/install/build -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/install -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=Release ${{matrix.platform.flags}} ${{matrix.config.flags}}
+        cmake --build test/install/build --config Release
