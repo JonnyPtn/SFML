@@ -6,8 +6,11 @@ android {
     namespace = "com.sfml.sfml"
 
     defaultConfig {
-        minSdk = 24
+        minSdk = (properties["sfml.minSdk"] as String).toInt()
         compileSdk = 36
+        ndk {
+            abiFilters += properties["sfml.archAbi"] as String
+        }
         externalNativeBuild {
             cmake {
                 arguments += "-DSFML_BUILD_EXAMPLES=ON"

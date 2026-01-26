@@ -198,9 +198,13 @@ jobs:
     - name: Build
       run: cmake --build build --config ${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }} --target install
 
-    - name: Build Android example
+    - name: Build Android preinstalled example
       if: matrix.platform.name == 'Android'
       run: examples/android/gradlew ${{ matrix.type.name == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/android -P ARCH_ABI=${{matrix.config.arch}} -P MIN_SDK=${{matrix.config.api}}
+    
+    - name: Build Android source example
+      if: matrix.platform.name == 'Android'
+      run: examples/projects/android/gradlew ${{ matrix.type.name == 'Debug' && 'assembleDebug' || 'assembleRelease' }} -p examples/projects/android -P sfml.archAbi=${{matrix.config.arch}} -P sfml.minSdk=${{matrix.config.api}}
 
     - name: Prepare Test
       run: |

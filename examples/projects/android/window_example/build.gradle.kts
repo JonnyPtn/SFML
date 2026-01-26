@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sfml.window_example"
-        minSdk = 24
+        minSdk = (properties["sfml.minSdk"] as String).toInt()
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
