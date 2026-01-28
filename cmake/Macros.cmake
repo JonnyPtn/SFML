@@ -458,6 +458,14 @@ function(sfml_add_test target SOURCES DEPENDS)
         target_compile_options(${target} PRIVATE /utf-8)
     endif()
 
+    if (XCODE)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND $<TARGET_FILE:${target}>
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        )
+    endif()
+    
+
     # Add the test
     catch_discover_tests(${target} WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
 endfunction()

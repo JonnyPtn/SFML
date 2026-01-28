@@ -420,3 +420,5 @@ sfml_set_option(CLANG_TIDY_EXECUTABLE clang-tidy STRING "Override clang-tidy exe
 add_custom_target(tidy
     COMMAND ${CMAKE_COMMAND} -DCLANG_TIDY_EXECUTABLE=${CLANG_TIDY_EXECUTABLE} -DPROJECT_BINARY_DIR=${PROJECT_BINARY_DIR} -P ./cmake/Tidy.cmake
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} VERBATIM)
+
+execute_process(COMMAND cat build/build/test-sfml-system.build/Debug/Script-24994A5DA7072A95E4959E0F.sh)
