@@ -200,7 +200,7 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         spctl --status
-        spctl --master-status
+        spctl --disable-status
         spctl --list --type execute
         spctl kext-consent list
 
