@@ -197,7 +197,9 @@ jobs:
 
     - name: Check gatekeeper
       if: runner.os == 'macOS'
-      run: spctl --status
+      run: |
+        spctl --status
+        spctl kext-consent list
 
     - name: Build
       run: cmake --build build --config ${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }} --target install
