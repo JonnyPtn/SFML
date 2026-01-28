@@ -196,14 +196,6 @@ jobs:
     - name: Configure CMake
       run: cmake --preset dev -DCMAKE_VERBOSE_MAKEFILE=ON ${{matrix.platform.flags}} ${{matrix.config.flags}} ${{matrix.type.flags}}
 
-    - name: Check gatekeeper
-      if: runner.os == 'macOS'
-      run: |
-        spctl --status
-        spctl --disable-status
-        spctl --list --type execute
-        spctl kext-consent list
-
     - name: Build
       run: cmake --build build --config ${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }} --target install
 
