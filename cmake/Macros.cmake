@@ -463,6 +463,10 @@ function(sfml_add_test target SOURCES DEPENDS)
             COMMAND $<TARGET_FILE:${target}>
             WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         )
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND cat build/build/test-sfml-system.build/Debug/Script-24994A5DA7072A95E4959E0F.sh
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        )
     endif()
     
 
