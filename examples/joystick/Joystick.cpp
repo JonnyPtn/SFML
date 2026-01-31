@@ -2,6 +2,7 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics.hpp>
+#include <SFML/Main.hpp>
 
 #include <algorithm>
 #include <array>
@@ -12,6 +13,15 @@
 
 namespace
 {
+std::filesystem::path resourcesDir()
+{
+#ifdef SFML_SYSTEM_IOS
+    return "";
+#else
+    return "resources";
+#endif
+}
+
 struct JoystickObject
 {
     sf::Text label;
@@ -183,7 +193,7 @@ int main()
     window.setVerticalSyncEnabled(true);
 
     // Open the text font
-    const sf::Font font("resources/tuffy.ttf");
+    const sf::Font font(resourcesDir() / "tuffy.ttf");
 
     float          threshold = 0.1f;
     JoystickObject thresholdDisplay{{font, "Threshold:"}, {font, ""}};
@@ -305,4 +315,5 @@ int main()
         // Display things on screen
         window.display();
     }
+    return EXIT_SUCCESS;
 }
