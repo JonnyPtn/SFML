@@ -30,5 +30,5 @@ if(XCODE AND SFML_OS_IOS)
         test-🐌.txt
     )
     target_sources(test-sfml-system PRIVATE ${SYSTEM_RESOURCE})
-    set_source_files_properties(${SYSTEM_RESOURCE} PROPERTIES MACOSX_PACKAGE_LOCATION "System")
+    set_target_properties(test-sfml-system PROPERTIES RESOURCE "${SYSTEM_RESOURCE}")
 endif()

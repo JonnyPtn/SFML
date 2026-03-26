@@ -97,7 +97,7 @@ if(SFML_OS_ANDROID)
 
     if(ADB)
         # Copy binaries for all the required targets
-        add_custom_target(prepare-android-files
+        add_custom_target(prepare-test-files
             COMMAND ${ADB} push "$<TARGET_FILE:test-sfml-audio>"        ${TARGET_DIR}/$<TARGET_FILE_NAME:test-sfml-audio>
             COMMAND ${ADB} push "$<TARGET_FILE:test-sfml-graphics>"     ${TARGET_DIR}/$<TARGET_FILE_NAME:test-sfml-graphics>
             COMMAND ${ADB} push "$<TARGET_FILE:test-sfml-network>"      ${TARGET_DIR}/$<TARGET_FILE_NAME:test-sfml-network>
@@ -166,6 +166,21 @@ if(SFML_OS_ANDROID)
             COMMAND ${CMAKE_COMMAND} -E echo "adb wasn't found, install it and reconfigure"
             COMMAND ${CMAKE_COMMAND} -E false)
     endif()
+elseif(SFML_OS_IOS)
+    # Install the test binaries
+    add_custom_target(prepare-test-files
+            COMMAND xcrun simctl install booted "$<TARGET_BUNDLE_DIR:test-sfml-audio>"
+            COMMAND xcrun simctl install booted "$<TARGET_BUNDLE_DIR:test-sfml-graphics>"
+            COMMAND xcrun simctl install booted "$<TARGET_BUNDLE_DIR:test-sfml-network>"
+            COMMAND xcrun simctl install booted "$<TARGET_BUNDLE_DIR:test-sfml-system>"
+            COMMAND xcrun simctl install booted "$<TARGET_BUNDLE_DIR:test-sfml-window>"
+        )
+    # Generate proxy script that translates CTest commands into xcrun simctl commands
+    file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/xcrun.sh" CONTENT
+        "#!/bin/bash\n\
+        app=$(basename $1)\n\
+        xcrun simctl launch --console --terminate-running-process booted \"org.sfml-dev.$app\" \"$2\" \"$3\" \"$4\" \"$5\" \"$6\" \"$7\" \"$8\" \"$9\"\n"
+        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 endif()
 
 if(SFML_ENABLE_COVERAGE AND SFML_OS_WINDOWS AND NOT SFML_COMPILER_GCC)

@@ -453,6 +453,8 @@ function(sfml_add_test target SOURCES DEPENDS)
             else()
                 set_target_properties(${target} PROPERTIES CROSSCOMPILING_EMULATOR "${PROJECT_BINARY_DIR}/run-in-adb-shell.sh")
             endif()
+        elseif(SFML_OS_IOS)
+            set_target_properties(${target} PROPERTIES CROSSCOMPILING_EMULATOR "${PROJECT_BINARY_DIR}/xcrun.sh")
         endif()
     endif()
 

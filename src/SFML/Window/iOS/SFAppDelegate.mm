@@ -75,10 +75,12 @@ std::vector<sf::Vector2i> touchPositions;
 - (void)runUserMain
 {
 #if TARGET_IPHONE_SIMULATOR
-    sfmlMain(*_NSGetArgc(), *_NSGetArgv());
+    const auto code = sfmlMain(*_NSGetArgc(), *_NSGetArgv());
 #else
-    sfmlMain(0, nullptr);
+    const auto code = sfmlMain(0, nullptr);
 #endif
+    [self applicationWillTerminate:[UIApplication sharedApplication]];
+    exit(code);
 }
 
 

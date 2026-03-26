@@ -251,14 +251,8 @@ jobs:
     - name: Test (iOS)
       if: contains(matrix.platform.name, 'iOS')
       run: |
-        CONFIG=${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }}
-        for app in build/bin/${CONFIG}/test-sfml-*.app; do
-          test_name=$(basename "$app" .app)
-          echo "::group::Running $test_name"
-          xcrun simctl install booted "$app"
-          xcrun simctl launch --console --terminate-running-process booted "org.sfml-dev.$test_name"
-          echo "::endgroup::"
-        done
+        cmake --build build --target prepare-test-files --config ${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }}
+        ctest --test-dir build --output-on-failure -C ${{ matrix.type.name == 'Debug' && 'Debug' || 'Release' }} --repeat until-pass:3
 
     - name: Upload Coverage Report to Coveralls
       if: matrix.type.name == 'Debug' && github.repository == 'SFML/SFML' && !contains(matrix.platform.name, 'iOS') && !contains(matrix.platform.name, 'Android')  && !contains(matrix.platform.name, 'arm64') # Disable upload in forks
