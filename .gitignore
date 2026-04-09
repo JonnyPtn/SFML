@@ -37,3 +37,4 @@ patch_coverage.cmake
 *.xcscheme
 *.pbxproj
 *.xcuserstate
+*.xcbkptlist

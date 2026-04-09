@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/Drawable.hpp>
 #include <SFML/Graphics/GLCheck.hpp>
 #include <SFML/Graphics/GLExtensions.hpp>
@@ -35,7 +36,6 @@
 
 #include <SFML/Window/Context.hpp>
 
-#include <SFML/System/EnumArray.hpp>
 #include <SFML/System/Err.hpp>
 
 #include <algorithm>
@@ -43,7 +43,6 @@
 #include <ostream>
 #include <unordered_map>
 
-#include <cassert>
 #include <cmath>
 #include <cstddef>
 
@@ -84,113 +83,6 @@ bool isActive(std::uint64_t id)
     const auto it = getContextRenderTargetMap().find(sf::Context::getActiveContextId());
     return (it != getContextRenderTargetMap().end()) && (it->second == id);
 }
-
-// Convert an sf::BlendMode::Factor constant to the corresponding OpenGL constant.
-std::uint32_t factorToGlConstant(sf::BlendMode::Factor blendFactor)
-{
-    // clang-format off
-    switch (blendFactor)
-    {
-        case sf::BlendMode::Factor::Zero:             return GL_ZERO;
-        case sf::BlendMode::Factor::One:              return GL_ONE;
-        case sf::BlendMode::Factor::SrcColor:         return GL_SRC_COLOR;
-        case sf::BlendMode::Factor::OneMinusSrcColor: return GL_ONE_MINUS_SRC_COLOR;
-        case sf::BlendMode::Factor::DstColor:         return GL_DST_COLOR;
-        case sf::BlendMode::Factor::OneMinusDstColor: return GL_ONE_MINUS_DST_COLOR;
-        case sf::BlendMode::Factor::SrcAlpha:         return GL_SRC_ALPHA;
-        case sf::BlendMode::Factor::OneMinusSrcAlpha: return GL_ONE_MINUS_SRC_ALPHA;
-        case sf::BlendMode::Factor::DstAlpha:         return GL_DST_ALPHA;
-        case sf::BlendMode::Factor::OneMinusDstAlpha: return GL_ONE_MINUS_DST_ALPHA;
-    }
-    // clang-format on
-
-    sf::err() << "Invalid value for sf::BlendMode::Factor! Fallback to sf::BlendMode::Factor::Zero." << std::endl;
-    assert(false);
-    return GL_ZERO;
-}
-
-
-// Convert an sf::BlendMode::Equation constant to the corresponding OpenGL constant.
-std::uint32_t equationToGlConstant(sf::BlendMode::Equation blendEquation)
-{
-    switch (blendEquation)
-    {
-        case sf::BlendMode::Equation::Add:
-            return GLEXT_GL_FUNC_ADD;
-        case sf::BlendMode::Equation::Subtract:
-            if (GLEXT_blend_subtract)
-                return GLEXT_GL_FUNC_SUBTRACT;
-            break;
-        case sf::BlendMode::Equation::ReverseSubtract:
-            if (GLEXT_blend_subtract)
-                return GLEXT_GL_FUNC_REVERSE_SUBTRACT;
-            break;
-        case sf::BlendMode::Equation::Min:
-            if (GLEXT_blend_minmax)
-                return GLEXT_GL_MIN;
-            break;
-        case sf::BlendMode::Equation::Max:
-            if (GLEXT_blend_minmax)
-                return GLEXT_GL_MAX;
-            break;
-    }
-
-    static bool warned = false;
-    if (!warned)
-    {
-        sf::err() << "OpenGL extension EXT_blend_minmax or EXT_blend_subtract unavailable" << '\n'
-                  << "Some blending equations will fallback to sf::BlendMode::Equation::Add" << '\n'
-                  << "Ensure that hardware acceleration is enabled if available" << std::endl;
-
-        warned = true;
-    }
-
-    return GLEXT_GL_FUNC_ADD;
-}
-
-
-// Convert an UpdateOperation constant to the corresponding OpenGL constant.
-std::uint32_t stencilOperationToGlConstant(sf::StencilUpdateOperation operation)
-{
-    // clang-format off
-    switch (operation)
-    {
-        case sf::StencilUpdateOperation::Keep:      return GL_KEEP;
-        case sf::StencilUpdateOperation::Zero:      return GL_ZERO;
-        case sf::StencilUpdateOperation::Replace:   return GL_REPLACE;
-        case sf::StencilUpdateOperation::Increment: return GL_INCR;
-        case sf::StencilUpdateOperation::Decrement: return GL_DECR;
-        case sf::StencilUpdateOperation::Invert:    return GL_INVERT;
-    }
-    // clang-format on
-
-    sf::err() << "Invalid value for sf::StencilUpdateOperation! Fallback to sf::StencilMode::Keep." << std::endl;
-    assert(false);
-    return GL_KEEP;
-}
-
-
-// Convert a Comparison constant to the corresponding OpenGL constant.
-std::uint32_t stencilFunctionToGlConstant(sf::StencilComparison comparison)
-{
-    // clang-format off
-    switch (comparison)
-    {
-        case sf::StencilComparison::Never:        return GL_NEVER;
-        case sf::StencilComparison::Less:         return GL_LESS;
-        case sf::StencilComparison::LessEqual:    return GL_LEQUAL;
-        case sf::StencilComparison::Greater:      return GL_GREATER;
-        case sf::StencilComparison::GreaterEqual: return GL_GEQUAL;
-        case sf::StencilComparison::Equal:        return GL_EQUAL;
-        case sf::StencilComparison::NotEqual:     return GL_NOTEQUAL;
-        case sf::StencilComparison::Always:       return GL_ALWAYS;
-    }
-    // clang-format on
-
-    sf::err() << "Invalid value for sf::StencilComparison! Fallback to sf::StencilMode::Always." << std::endl;
-    assert(false);
-    return GL_ALWAYS;
-}
 } // namespace RenderTargetImpl
 } // namespace
 
@@ -209,8 +101,7 @@ void RenderTarget::clear(Color color)
         if (!m_cache.enable || m_cache.viewChanged)
             applyCurrentView();
 
-        glCheck(glClearColor(color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f));
-        glCheck(glClear(GL_COLOR_BUFFER_BIT));
+        priv::getGraphicsBackend().clear(color);
     }
 }
 
@@ -227,8 +118,7 @@ void RenderTarget::clearStencil(StencilValue stencilValue)
         if (!m_cache.enable || m_cache.viewChanged)
             applyCurrentView();
 
-        glCheck(glClearStencil(static_cast<int>(stencilValue.value)));
-        glCheck(glClear(GL_STENCIL_BUFFER_BIT));
+        priv::getGraphicsBackend().clearStencil(stencilValue);
     }
 }
 
@@ -245,9 +135,7 @@ void RenderTarget::clear(Color color, StencilValue stencilValue)
         if (!m_cache.enable || m_cache.viewChanged)
             applyCurrentView();
 
-        glCheck(glClearColor(color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f));
-        glCheck(glClearStencil(static_cast<int>(stencilValue.value)));
-        glCheck(glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
+        priv::getGraphicsBackend().clear(color, stencilValue);
     }
 }
 
@@ -572,6 +460,8 @@ void RenderTarget::popGLStates()
 ////////////////////////////////////////////////////////////
 void RenderTarget::resetGLStates()
 {
+    auto& backend = priv::getGraphicsBackend();
+
     // Check here to make sure a context change does not happen after activate(true)
     const bool shaderAvailable       = Shader::isAvailable();
     const bool vertexBufferAvailable = VertexBuffer::isAvailable();
@@ -587,31 +477,9 @@ void RenderTarget::resetGLStates()
 
     if (RenderTargetImpl::isActive(m_id) || setActive(true))
     {
-        // Make sure that extensions are initialized
-        priv::ensureExtensionsInit();
+        // Delegate initial GL state setup to the backend
+        static_cast<priv::GLBackend&>(backend).resetGLStates();
 
-        // Make sure that the texture unit which is active is the number 0
-        if (GLEXT_multitexture)
-        {
-            glCheck(GLEXT_glClientActiveTexture(GLEXT_GL_TEXTURE0));
-            glCheck(GLEXT_glActiveTexture(GLEXT_GL_TEXTURE0));
-        }
-
-        // Define the default OpenGL states
-        glCheck(glDisable(GL_CULL_FACE));
-        glCheck(glDisable(GL_LIGHTING));
-        glCheck(glDisable(GL_STENCIL_TEST));
-        glCheck(glDisable(GL_DEPTH_TEST));
-        glCheck(glDisable(GL_ALPHA_TEST));
-        glCheck(glDisable(GL_SCISSOR_TEST));
-        glCheck(glEnable(GL_TEXTURE_2D));
-        glCheck(glEnable(GL_BLEND));
-        glCheck(glMatrixMode(GL_MODELVIEW));
-        glCheck(glLoadIdentity());
-        glCheck(glEnableClientState(GL_VERTEX_ARRAY));
-        glCheck(glEnableClientState(GL_COLOR_ARRAY));
-        glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-        glCheck(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
         m_cache.scissorEnabled = false;
         m_cache.stencilEnabled = false;
         m_cache.glStatesSet    = true;
@@ -624,7 +492,7 @@ void RenderTarget::resetGLStates()
             applyShader(nullptr);
 
         if (vertexBufferAvailable)
-            glCheck(VertexBuffer::bind(nullptr));
+            VertexBuffer::bind(nullptr);
 
         m_cache.texCoordsArrayEnabled = true;
 
@@ -657,17 +525,19 @@ void RenderTarget::initialize()
 ////////////////////////////////////////////////////////////
 void RenderTarget::applyCurrentView()
 {
-    // Set the viewport
+    auto& backend = priv::getGraphicsBackend();
+
+    // Set the viewport (flip Y for OpenGL's bottom-left origin)
     const IntRect viewport    = getViewport(m_view);
     const int     viewportTop = static_cast<int>(getSize().y) - (viewport.position.y + viewport.size.y);
-    glCheck(glViewport(viewport.position.x, viewportTop, viewport.size.x, viewport.size.y));
+    backend.setViewport(IntRect({viewport.position.x, viewportTop}, viewport.size));
 
     // Set the scissor rectangle and enable/disable scissor testing
     if (m_view.getScissor() == FloatRect({0, 0}, {1, 1}))
     {
         if (!m_cache.enable || m_cache.scissorEnabled)
         {
-            glCheck(glDisable(GL_SCISSOR_TEST));
+            backend.setScissor({}, false);
             m_cache.scissorEnabled = false;
         }
     }
@@ -675,21 +545,20 @@ void RenderTarget::applyCurrentView()
     {
         const IntRect pixelScissor = getScissor(m_view);
         const int     scissorTop   = static_cast<int>(getSize().y) - (pixelScissor.position.y + pixelScissor.size.y);
-        glCheck(glScissor(pixelScissor.position.x, scissorTop, pixelScissor.size.x, pixelScissor.size.y));
 
         if (!m_cache.enable || !m_cache.scissorEnabled)
         {
-            glCheck(glEnable(GL_SCISSOR_TEST));
+            backend.setScissor(IntRect({pixelScissor.position.x, scissorTop}, pixelScissor.size), true);
             m_cache.scissorEnabled = true;
+        }
+        else
+        {
+            backend.setScissor(IntRect({pixelScissor.position.x, scissorTop}, pixelScissor.size), true);
         }
     }
 
-    // Set the projection matrix
-    glCheck(glMatrixMode(GL_PROJECTION));
-    glCheck(glLoadMatrixf(m_view.getTransform().getMatrix()));
-
-    // Go back to model-view mode
-    glCheck(glMatrixMode(GL_MODELVIEW));
+    // Set the projection and modelview via backend
+    backend.applyTransform(m_view.getTransform(), Transform::Identity);
 
     m_cache.viewChanged = false;
 }
@@ -698,52 +567,7 @@ void RenderTarget::applyCurrentView()
 ////////////////////////////////////////////////////////////
 void RenderTarget::applyBlendMode(const BlendMode& mode)
 {
-    using RenderTargetImpl::equationToGlConstant;
-    using RenderTargetImpl::factorToGlConstant;
-
-    // Apply the blend mode, falling back to the non-separate versions if necessary
-    if (GLEXT_blend_func_separate)
-    {
-        glCheck(GLEXT_glBlendFuncSeparate(factorToGlConstant(mode.colorSrcFactor),
-                                          factorToGlConstant(mode.colorDstFactor),
-                                          factorToGlConstant(mode.alphaSrcFactor),
-                                          factorToGlConstant(mode.alphaDstFactor)));
-    }
-    else
-    {
-        glCheck(glBlendFunc(factorToGlConstant(mode.colorSrcFactor), factorToGlConstant(mode.colorDstFactor)));
-    }
-
-    if (GLEXT_blend_minmax || GLEXT_blend_subtract)
-    {
-        if (GLEXT_blend_equation_separate)
-        {
-            glCheck(GLEXT_glBlendEquationSeparate(equationToGlConstant(mode.colorEquation),
-                                                  equationToGlConstant(mode.alphaEquation)));
-        }
-        else
-        {
-            glCheck(GLEXT_glBlendEquation(equationToGlConstant(mode.colorEquation)));
-        }
-    }
-    else if ((mode.colorEquation != BlendMode::Equation::Add) || (mode.alphaEquation != BlendMode::Equation::Add))
-    {
-        static bool warned = false;
-
-        if (!warned)
-        {
-#ifdef SFML_OPENGL_ES
-            err() << "OpenGL ES extension OES_blend_subtract unavailable" << std::endl;
-#else
-            err() << "OpenGL extension EXT_blend_minmax and EXT_blend_subtract unavailable" << std::endl;
-#endif
-            err() << "Selecting a blend equation not possible" << '\n'
-                  << "Ensure that hardware acceleration is enabled if available" << std::endl;
-
-            warned = true;
-        }
-    }
-
+    priv::getGraphicsBackend().applyBlendMode(mode);
     m_cache.lastBlendMode = mode;
 }
 
@@ -751,33 +575,18 @@ void RenderTarget::applyBlendMode(const BlendMode& mode)
 ////////////////////////////////////////////////////////////
 void RenderTarget::applyStencilMode(const StencilMode& mode)
 {
-    using RenderTargetImpl::stencilFunctionToGlConstant;
-    using RenderTargetImpl::stencilOperationToGlConstant;
-
     // Fast path if we have a default (disabled) stencil mode
     if (mode == StencilMode())
     {
         if (!m_cache.enable || m_cache.stencilEnabled)
         {
-            glCheck(glDisable(GL_STENCIL_TEST));
-            glCheck(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-
+            priv::getGraphicsBackend().applyStencilMode(mode);
             m_cache.stencilEnabled = false;
         }
     }
     else
     {
-        // Apply the stencil mode
-        if (!m_cache.enable || !m_cache.stencilEnabled)
-            glCheck(glEnable(GL_STENCIL_TEST));
-
-        glCheck(glStencilOp(GL_KEEP,
-                            stencilOperationToGlConstant(mode.stencilUpdateOperation),
-                            stencilOperationToGlConstant(mode.stencilUpdateOperation)));
-        glCheck(glStencilFunc(stencilFunctionToGlConstant(mode.stencilComparison),
-                              static_cast<int>(mode.stencilReference.value),
-                              mode.stencilMask.value));
-
+        priv::getGraphicsBackend().applyStencilMode(mode);
         m_cache.stencilEnabled = true;
     }
 
@@ -788,12 +597,8 @@ void RenderTarget::applyStencilMode(const StencilMode& mode)
 ////////////////////////////////////////////////////////////
 void RenderTarget::applyTransform(const Transform& transform)
 {
-    // No need to call glMatrixMode(GL_MODELVIEW), it is always the
-    // current mode (for optimization purpose, since it's the most used)
-    if (transform == Transform::Identity)
-        glCheck(glLoadIdentity());
-    else
-        glCheck(glLoadMatrixf(transform.getMatrix()));
+    // Only update the modelview; projection is set in applyCurrentView
+    priv::getGraphicsBackend().applyTransform(m_view.getTransform(), transform);
 }
 
 
@@ -817,19 +622,11 @@ void RenderTarget::applyShader(const Shader* shader)
 ////////////////////////////////////////////////////////////
 void RenderTarget::setupDraw(bool useVertexCache, const RenderStates& states)
 {
-    // GL_FRAMEBUFFER_SRGB is not available on OpenGL ES
-    // If a framebuffer supports sRGB, it will always be enabled on OpenGL ES
-#ifndef SFML_OPENGL_ES
+    auto& backend = priv::getGraphicsBackend();
+
     // Enable or disable sRGB encoding
-    // This is needed for drivers that do not check the format of the surface drawn to before applying sRGB conversion
     if (!m_cache.enable)
-    {
-        if (isSrgb())
-            glCheck(glEnable(GL_FRAMEBUFFER_SRGB));
-        else if (GLEXT_framebuffer_sRGB)
-            glCheck(glDisable(GL_FRAMEBUFFER_SRGB));
-    }
-#endif
+        backend.setSrgb(isSrgb());
 
     // First set the persistent OpenGL states if it's the very first call
     if (!m_cache.glStatesSet)
@@ -839,7 +636,7 @@ void RenderTarget::setupDraw(bool useVertexCache, const RenderStates& states)
     {
         // Since vertices are transformed, we must use an identity transform to render them
         if (!m_cache.enable || !m_cache.useVertexCache)
-            glCheck(glLoadIdentity());
+            applyTransform(Transform::Identity);
     }
     else
     {
@@ -860,7 +657,7 @@ void RenderTarget::setupDraw(bool useVertexCache, const RenderStates& states)
 
     // Mask the color buffer off if necessary
     if (states.stencilMode.stencilOnly)
-        glCheck(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
+        backend.setColorMask(false);
 
     // Apply the texture
     if (!m_cache.enable || (states.texture && states.texture->m_fboAttachment))
@@ -889,13 +686,7 @@ void RenderTarget::setupDraw(bool useVertexCache, const RenderStates& states)
 ////////////////////////////////////////////////////////////
 void RenderTarget::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std::size_t vertexCount)
 {
-    // Find the OpenGL primitive type
-    static constexpr priv::EnumArray<PrimitiveType, GLenum, 6> modes =
-        {GL_POINTS, GL_LINES, GL_LINE_STRIP, GL_TRIANGLES, GL_TRIANGLE_STRIP, GL_TRIANGLE_FAN};
-    const GLenum mode = modes[type];
-
-    // Draw the primitives
-    glCheck(glDrawArrays(mode, static_cast<GLint>(firstVertex), static_cast<GLsizei>(vertexCount)));
+    priv::getGraphicsBackend().drawPrimitives(type, firstVertex, vertexCount);
 }
 
 
@@ -913,7 +704,7 @@ void RenderTarget::cleanupDraw(const RenderStates& states)
 
     // Mask the color buffer back on if necessary
     if (states.stencilMode.stencilOnly)
-        glCheck(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+        priv::getGraphicsBackend().setColorMask(true);
 
     // Re-enable the cache at the end of the draw if it was disabled
     m_cache.enable = true;
