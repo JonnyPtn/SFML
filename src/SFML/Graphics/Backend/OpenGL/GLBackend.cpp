@@ -1892,7 +1892,7 @@ void GLBackend::flushPipeline()
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::pushGLStates()
+void GLBackend::pushRenderStates()
 {
 #ifdef SFML_DEBUG
     // Make sure that the user didn't leave an unchecked OpenGL error
@@ -1918,7 +1918,7 @@ void GLBackend::pushGLStates()
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::popGLStates()
+void GLBackend::popRenderStates()
 {
     glCheck(glMatrixMode(GL_PROJECTION));
     glCheck(glPopMatrix());

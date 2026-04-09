@@ -193,8 +193,8 @@ public:
     ////////////////////////////////////////////////////////////
 
     void         flushPipeline() override;
-    void         pushGLStates() override;
-    void         popGLStates() override;
+    void         pushRenderStates() override;
+    void         popRenderStates() override;
     void         bindBuffer(BackendBufferHandle buffer) override;
     unsigned int getDefaultFramebufferBinding() const override;
     bool         isFramebufferAvailable() const override;

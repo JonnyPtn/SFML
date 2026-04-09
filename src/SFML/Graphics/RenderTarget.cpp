@@ -393,7 +393,7 @@ bool RenderTarget::setActive(bool active)
 void RenderTarget::pushGLStates()
 {
     if (RenderTargetImpl::isActive(m_id) || setActive(true))
-        priv::getGraphicsBackend().pushGLStates();
+        priv::getGraphicsBackend().pushRenderStates();
 
     resetGLStates();
 }
@@ -403,7 +403,7 @@ void RenderTarget::pushGLStates()
 void RenderTarget::popGLStates()
 {
     if (RenderTargetImpl::isActive(m_id) || setActive(true))
-        priv::getGraphicsBackend().popGLStates();
+        priv::getGraphicsBackend().popRenderStates();
 }
 
 
