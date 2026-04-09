@@ -384,7 +384,7 @@ BackendTextureHandle GLBackend::createTexture(Vector2u size, bool sRgb)
 
     glCheck(glBindTexture(GL_TEXTURE_2D, texture));
 
-    const GLenum internalFormat = sRgb ? GLEXT_GL_SRGB8_ALPHA8 : GL_RGBA8;
+    const GLenum internalFormat = sRgb ? GLEXT_GL_SRGB8_ALPHA8 : GL_RGBA;
 
     glCheck(glTexImage2D(GL_TEXTURE_2D,
                          0,
