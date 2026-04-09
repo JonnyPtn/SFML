@@ -172,13 +172,11 @@ Texture::Texture(const Texture& copy) :
 ////////////////////////////////////////////////////////////
 Texture::~Texture()
 {
-    // Destroy the OpenGL texture
+    // Destroy the texture via the backend
     if (m_texture)
     {
         const TransientContextLock lock;
-
-        const GLuint texture = m_texture;
-        glCheck(glDeleteTextures(1, &texture));
+        priv::getGraphicsBackend().destroyTexture(static_cast<priv::BackendTextureHandle>(m_texture));
     }
 
 #ifndef NDEBUG
@@ -213,13 +211,11 @@ Texture& Texture::operator=(Texture&& right) noexcept
         return *this;
     }
 
-    // Destroy the OpenGL texture
+    // Destroy the texture via the backend
     if (m_texture)
     {
         const TransientContextLock lock;
-
-        const GLuint texture = m_texture;
-        glCheck(glDeleteTextures(1, &texture));
+        priv::getGraphicsBackend().destroyTexture(static_cast<priv::BackendTextureHandle>(m_texture));
     }
 
     // Move old to new.
@@ -451,83 +447,25 @@ Vector2u Texture::getSize() const
 ////////////////////////////////////////////////////////////
 Image Texture::copyToImage() const
 {
-    // Easy case: empty texture
     if (!m_texture)
         return {};
 
     const TransientContextLock lock;
+    const priv::TextureSaver   save;
 
-    // Make sure that the current texture binding will be preserved
-    const priv::TextureSaver save;
+    // Read back the full actual-size texture via the backend
+    Image image = priv::getGraphicsBackend().readbackTexture(static_cast<priv::BackendTextureHandle>(m_texture), m_actualSize);
 
-    // Create an array of pixels
-    std::vector<std::uint8_t> pixels(m_size.x * m_size.y * 4);
-
-#ifdef SFML_OPENGL_ES
-
-    // OpenGL ES doesn't have the glGetTexImage function, the only way to read
-    // from a texture is to bind it to a FBO and use glReadPixels
-    GLuint frameBuffer = 0;
-    glCheck(GLEXT_glGenFramebuffers(1, &frameBuffer));
-    if (frameBuffer)
+    // If the texture is padded or flipped, extract the visible region
+    if ((m_size != m_actualSize) || m_pixelsFlipped)
     {
-        GLint previousFrameBuffer = 0;
-        glCheck(glGetIntegerv(GLEXT_GL_FRAMEBUFFER_BINDING, &previousFrameBuffer));
+        std::vector<std::uint8_t> pixels(m_size.x * m_size.y * 4);
 
-        glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, frameBuffer));
-        glCheck(GLEXT_glFramebufferTexture2D(GLEXT_GL_FRAMEBUFFER, GLEXT_GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0));
-        glCheck(glReadPixels(0,
-                             0,
-                             static_cast<GLsizei>(m_size.x),
-                             static_cast<GLsizei>(m_size.y),
-                             GL_RGBA,
-                             GL_UNSIGNED_BYTE,
-                             pixels.data()));
-        glCheck(GLEXT_glDeleteFramebuffers(1, &frameBuffer));
-
-        glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, static_cast<GLuint>(previousFrameBuffer)));
-
-        if (m_pixelsFlipped)
-        {
-            // Flip the texture vertically
-            const auto stride             = static_cast<std::ptrdiff_t>(m_size.x * 4);
-            auto       currentRowIterator = pixels.begin();
-            auto       nextRowIterator    = pixels.begin() + stride;
-            auto       reverseRowIterator = pixels.begin() + (stride * static_cast<std::ptrdiff_t>(m_size.y - 1));
-            for (unsigned int i = 0; i < m_size.y / 2; ++i)
-            {
-                std::swap_ranges(currentRowIterator, nextRowIterator, reverseRowIterator);
-                currentRowIterator = nextRowIterator;
-                nextRowIterator += stride;
-                reverseRowIterator -= stride;
-            }
-        }
-    }
-
-#else
-
-    if ((m_size == m_actualSize) && !m_pixelsFlipped)
-    {
-        // Texture is not padded nor flipped, we can use a direct copy
-        glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-        glCheck(glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data()));
-    }
-    else
-    {
-        // Texture is either padded or flipped, we have to use a slower algorithm
-
-        // All the pixels will first be copied to a temporary array
-        std::vector<std::uint8_t> allPixels(m_actualSize.x * m_actualSize.y * 4);
-        glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-        glCheck(glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, allPixels.data()));
-
-        // Then we copy the useful pixels from the temporary array to the final one
-        const std::uint8_t* src      = allPixels.data();
+        const std::uint8_t* src      = image.getPixelsPtr();
         std::uint8_t*       dst      = pixels.data();
         int                 srcPitch = static_cast<int>(m_actualSize.x * 4);
         const unsigned int  dstPitch = m_size.x * 4;
 
-        // Handle the case where source pixels are flipped vertically
         if (m_pixelsFlipped)
         {
             src += static_cast<unsigned int>(srcPitch * static_cast<int>(m_size.y - 1));
@@ -540,11 +478,11 @@ Image Texture::copyToImage() const
             src += srcPitch;
             dst += dstPitch;
         }
+
+        return {m_size, pixels.data()};
     }
 
-#endif // SFML_OPENGL_ES
-
-    return {m_size, pixels.data()};
+    return image;
 }
 
 
@@ -563,34 +501,16 @@ void Texture::update(const std::uint8_t* pixels, Vector2u size, Vector2u dest)
     assert(dest.y + size.y <= m_size.y && "Destination y coordinate is outside of texture");
 
     if (!pixels || !m_texture)
-    {
         return;
-    }
 
     const TransientContextLock lock;
+    const priv::TextureSaver   save;
 
-    // Make sure that the current texture binding will be preserved
-    const priv::TextureSaver save;
+    priv::getGraphicsBackend().updateTexture(static_cast<priv::BackendTextureHandle>(m_texture), pixels, size, dest);
 
-    // Copy pixels from the given array to the texture
-    glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-    glCheck(glTexSubImage2D(GL_TEXTURE_2D,
-                            0,
-                            static_cast<GLint>(dest.x),
-                            static_cast<GLint>(dest.y),
-                            static_cast<GLsizei>(size.x),
-                            static_cast<GLsizei>(size.y),
-                            GL_RGBA,
-                            GL_UNSIGNED_BYTE,
-                            pixels));
-    glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_isSmooth ? GL_LINEAR : GL_NEAREST));
     m_hasMipmap     = false;
     m_pixelsFlipped = false;
     m_cacheId       = TextureImpl::getUniqueId();
-
-    // Force an OpenGL flush, so that the texture data will appear updated
-    // in all contexts immediately (solves problems in multi-threaded apps)
-    glCheck(glFlush());
 }
 
 
@@ -752,33 +672,17 @@ void Texture::update(const Window& window, Vector2u dest)
     assert(dest.y + window.getSize().y <= m_size.y && "Destination y coordinate is outside of texture");
 
     if (!m_texture || !window.setActive(true))
-    {
         return;
-    }
 
     const TransientContextLock lock;
+    const priv::TextureSaver   save;
 
-    // Make sure that the current texture binding will be preserved
-    const priv::TextureSaver save;
+    priv::getGraphicsBackend().updateTextureFromFramebuffer(
+        static_cast<priv::BackendTextureHandle>(m_texture), window.getSize(), dest);
 
-    // Copy pixels from the back-buffer to the texture
-    glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-    glCheck(glCopyTexSubImage2D(GL_TEXTURE_2D,
-                                0,
-                                static_cast<GLint>(dest.x),
-                                static_cast<GLint>(dest.y),
-                                0,
-                                0,
-                                static_cast<GLsizei>(window.getSize().x),
-                                static_cast<GLsizei>(window.getSize().y)));
-    glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_isSmooth ? GL_LINEAR : GL_NEAREST));
     m_hasMipmap     = false;
     m_pixelsFlipped = true;
     m_cacheId       = TextureImpl::getUniqueId();
-
-    // Force an OpenGL flush, so that the texture will appear updated
-    // in all contexts immediately (solves problems in multi-threaded apps)
-    glCheck(glFlush());
 }
 
 
@@ -786,35 +690,17 @@ void Texture::update(const Window& window, Vector2u dest)
 void Texture::setSmooth(bool smooth)
 {
     if (smooth == m_isSmooth)
-    {
         return;
-    }
 
     m_isSmooth = smooth;
 
     if (!m_texture)
-    {
         return;
-    }
 
     const TransientContextLock lock;
+    const priv::TextureSaver   save;
 
-    // Make sure that the current texture binding will be preserved
-    const priv::TextureSaver save;
-
-    glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-    glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, m_isSmooth ? GL_LINEAR : GL_NEAREST));
-
-    if (m_hasMipmap)
-    {
-        glCheck(glTexParameteri(GL_TEXTURE_2D,
-                                GL_TEXTURE_MIN_FILTER,
-                                m_isSmooth ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_LINEAR));
-    }
-    else
-    {
-        glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_isSmooth ? GL_LINEAR : GL_NEAREST));
-    }
+    priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, m_hasMipmap);
 }
 
 
@@ -836,47 +722,17 @@ bool Texture::isSrgb() const
 void Texture::setRepeated(bool repeated)
 {
     if (repeated == m_isRepeated)
-    {
         return;
-    }
 
     m_isRepeated = repeated;
 
     if (!m_texture)
-    {
         return;
-    }
 
     const TransientContextLock lock;
+    const priv::TextureSaver   save;
 
-    // Make sure that the current texture binding will be preserved
-    const priv::TextureSaver save;
-
-    static const bool textureEdgeClamp = GLEXT_texture_edge_clamp;
-
-    if (!m_isRepeated && !textureEdgeClamp)
-    {
-        static bool warned = false;
-
-        if (!warned)
-        {
-            err() << "OpenGL extension SGIS_texture_edge_clamp unavailable" << '\n'
-                  << "Artifacts may occur along texture edges" << '\n'
-                  << "Ensure that hardware acceleration is enabled if available" << std::endl;
-
-            warned = true;
-        }
-    }
-
-#ifndef SFML_OPENGL_ES
-    const GLint textureWrapParam = m_isRepeated ? GL_REPEAT : (textureEdgeClamp ? GLEXT_GL_CLAMP_TO_EDGE : GLEXT_GL_CLAMP);
-#else
-    const GLint textureWrapParam = m_isRepeated ? GL_REPEAT : GLEXT_GL_CLAMP_TO_EDGE;
-#endif
-
-    glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-    glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, textureWrapParam));
-    glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, textureWrapParam));
+    priv::getGraphicsBackend().setTextureRepeated(static_cast<priv::BackendTextureHandle>(m_texture), m_isRepeated);
 }
 
 
@@ -894,24 +750,12 @@ bool Texture::generateMipmap()
         return false;
 
     const TransientContextLock lock;
+    const priv::TextureSaver   save;
 
-    // Make sure that extensions are initialized
-    priv::ensureExtensionsInit();
-
-    if (!GLEXT_framebuffer_object)
+    if (!priv::getGraphicsBackend().generateMipmap(static_cast<priv::BackendTextureHandle>(m_texture), m_size, m_isSmooth))
         return false;
 
-    // Make sure that the current texture binding will be preserved
-    const priv::TextureSaver save;
-
-    glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-    glCheck(GLEXT_glGenerateMipmap(GL_TEXTURE_2D));
-    glCheck(glTexParameteri(GL_TEXTURE_2D,
-                            GL_TEXTURE_MIN_FILTER,
-                            m_isSmooth ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_LINEAR));
-
     m_hasMipmap = true;
-
     return true;
 }
 
@@ -923,12 +767,9 @@ void Texture::invalidateMipmap()
         return;
 
     const TransientContextLock lock;
+    const priv::TextureSaver   save;
 
-    // Make sure that the current texture binding will be preserved
-    const priv::TextureSaver save;
-
-    glCheck(glBindTexture(GL_TEXTURE_2D, m_texture));
-    glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_isSmooth ? GL_LINEAR : GL_NEAREST));
+    priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, false);
 
     m_hasMipmap = false;
 }
@@ -960,15 +801,8 @@ unsigned int Texture::getMaximumSize()
     static const unsigned int size = []
     {
         const TransientContextLock transientLock;
-
-        GLint value = 0;
-
-        // Make sure that extensions are initialized
         priv::ensureExtensionsInit();
-
-        glCheck(glGetIntegerv(GL_MAX_TEXTURE_SIZE, &value));
-
-        return static_cast<unsigned int>(value);
+        return priv::getGraphicsBackend().getMaxTextureSize();
     }();
 
     return size;
@@ -1012,18 +846,7 @@ unsigned int Texture::getNativeHandle() const
 ////////////////////////////////////////////////////////////
 unsigned int Texture::getValidSize(unsigned int size)
 {
-    if (GLEXT_texture_non_power_of_two)
-    {
-        // If hardware supports NPOT textures, then just return the unmodified size
-        return size;
-    }
-
-    // If hardware doesn't support NPOT textures, we calculate the nearest power of two
-    unsigned int powerOfTwo = 1;
-    while (powerOfTwo < size)
-        powerOfTwo *= 2;
-
-    return powerOfTwo;
+    return priv::getGraphicsBackend().getValidTextureSize(size);
 }
 
 
