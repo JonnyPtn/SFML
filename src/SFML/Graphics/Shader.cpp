@@ -304,9 +304,8 @@ Shader::~Shader()
 {
     const TransientContextLock lock;
 
-    // Destroy effect program
     if (m_shaderProgram)
-        glCheck(GLEXT_glDeleteObject(castToGlHandle(m_shaderProgram)));
+        priv::getGraphicsBackend().destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
 }
 
 ////////////////////////////////////////////////////////////
@@ -329,9 +328,8 @@ Shader& Shader::operator=(Shader&& right) noexcept
 
     if (m_shaderProgram)
     {
-        // Destroy effect program
         const TransientContextLock lock;
-        glCheck(GLEXT_glDeleteObject(castToGlHandle(m_shaderProgram)));
+        priv::getGraphicsBackend().destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
     }
 
     // Move the contents of right.
@@ -536,7 +534,7 @@ void Shader::setUniform(const std::string& name, float x)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform1f(binder.location, x));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, x);
 }
 
 
@@ -545,7 +543,7 @@ void Shader::setUniform(const std::string& name, Glsl::Vec2 v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform2f(binder.location, v.x, v.y));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
 }
 
 
@@ -554,7 +552,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Vec3& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform3f(binder.location, v.x, v.y, v.z));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
 }
 
 
@@ -563,7 +561,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Vec4& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform4f(binder.location, v.x, v.y, v.z, v.w));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
 }
 
 
@@ -572,7 +570,7 @@ void Shader::setUniform(const std::string& name, int x)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform1i(binder.location, x));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, x);
 }
 
 
@@ -581,7 +579,7 @@ void Shader::setUniform(const std::string& name, Glsl::Ivec2 v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform2i(binder.location, v.x, v.y));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
 }
 
 
@@ -590,7 +588,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Ivec3& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform3i(binder.location, v.x, v.y, v.z));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
 }
 
 
@@ -599,7 +597,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Ivec4& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform4i(binder.location, v.x, v.y, v.z, v.w));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
 }
 
 
@@ -636,7 +634,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Mat3& matrix)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniformMatrix3fv(binder.location, 1, GL_FALSE, matrix.array.data()));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, matrix);
 }
 
 
@@ -645,7 +643,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Mat4& matrix)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniformMatrix4fv(binder.location, 1, GL_FALSE, matrix.array.data()));
+        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, matrix);
 }
 
 
@@ -702,7 +700,10 @@ void Shader::setUniformArray(const std::string& name, const float* scalarArray, 
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform1fv(binder.location, static_cast<GLsizei>(length), scalarArray));
+        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+                                                   binder.location,
+                                                   scalarArray,
+                                                   length);
 }
 
 
@@ -713,7 +714,10 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Vec2* vectorAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform2fv(binder.location, static_cast<GLsizei>(length), contiguous.data()));
+        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+                                                   binder.location,
+                                                   reinterpret_cast<const Glsl::Vec2*>(contiguous.data()),
+                                                   length);
 }
 
 
@@ -724,7 +728,10 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Vec3* vectorAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform3fv(binder.location, static_cast<GLsizei>(length), contiguous.data()));
+        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+                                                   binder.location,
+                                                   reinterpret_cast<const Glsl::Vec3*>(contiguous.data()),
+                                                   length);
 }
 
 
@@ -735,7 +742,10 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Vec4* vectorAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniform4fv(binder.location, static_cast<GLsizei>(length), contiguous.data()));
+        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+                                                   binder.location,
+                                                   reinterpret_cast<const Glsl::Vec4*>(contiguous.data()),
+                                                   length);
 }
 
 
@@ -750,7 +760,10 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Mat3* matrixAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniformMatrix3fv(binder.location, static_cast<GLsizei>(length), GL_FALSE, contiguous.data()));
+        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+                                                   binder.location,
+                                                   reinterpret_cast<const Glsl::Mat3*>(contiguous.data()),
+                                                   length);
 }
 
 
@@ -765,7 +778,10 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Mat4* matrixAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        glCheck(GLEXT_glUniformMatrix4fv(binder.location, static_cast<GLsizei>(length), GL_FALSE, contiguous.data()));
+        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+                                                   binder.location,
+                                                   reinterpret_cast<const Glsl::Mat4*>(contiguous.data()),
+                                                   length);
 }
 
 
@@ -851,6 +867,8 @@ bool Shader::compile(std::string_view vertexShaderCode, std::string_view geometr
 {
     const TransientContextLock lock;
 
+    auto& backend = priv::getGraphicsBackend();
+
     // First make sure that we can use shaders
     if (!isAvailable())
     {
@@ -867,82 +885,21 @@ bool Shader::compile(std::string_view vertexShaderCode, std::string_view geometr
         return false;
     }
 
-    // Create the program
-    const GLEXT_GLhandle shaderProgram = glCheck(GLEXT_glCreateProgramObject());
-
-    // Helper function for shader creation
-    const auto createAndAttachShader =
-        [shaderProgram](GLenum shaderType, const char* shaderTypeStr, std::string_view shaderCode)
-    {
-        // Create and compile the shader
-        const GLEXT_GLhandle shader           = glCheck(GLEXT_glCreateShaderObject(shaderType));
-        const GLcharARB*     sourceCode       = shaderCode.data();
-        const auto           sourceCodeLength = static_cast<GLint>(shaderCode.length());
-        glCheck(GLEXT_glShaderSource(shader, 1, &sourceCode, &sourceCodeLength));
-        glCheck(GLEXT_glCompileShader(shader));
-
-        // Check the compile log
-        GLint success = 0;
-        glCheck(GLEXT_glGetObjectParameteriv(shader, GLEXT_GL_OBJECT_COMPILE_STATUS, &success));
-        if (success == GL_FALSE)
-        {
-            std::array<char, 1024> log{};
-            glCheck(GLEXT_glGetInfoLog(shader, static_cast<GLsizei>(log.size()), nullptr, log.data()));
-            err() << "Failed to compile " << shaderTypeStr << " shader:" << '\n' << log.data() << std::endl;
-            glCheck(GLEXT_glDeleteObject(shader));
-            glCheck(GLEXT_glDeleteObject(shaderProgram));
-            return false;
-        }
-
-        // Attach the shader to the program, and delete it (not needed anymore)
-        glCheck(GLEXT_glAttachObject(shaderProgram, shader));
-        glCheck(GLEXT_glDeleteObject(shader));
-        return true;
-    };
-
-    // Create the vertex shader if needed
-    if (!vertexShaderCode.empty())
-        if (!createAndAttachShader(GLEXT_GL_VERTEX_SHADER, "vertex", vertexShaderCode))
-            return false;
-
-    // Create the geometry shader if needed
-    if (!geometryShaderCode.empty())
-        if (!createAndAttachShader(GLEXT_GL_GEOMETRY_SHADER, "geometry", geometryShaderCode))
-            return false;
-
-    // Create the fragment shader if needed
-    if (!fragmentShaderCode.empty())
-        if (!createAndAttachShader(GLEXT_GL_FRAGMENT_SHADER, "fragment", fragmentShaderCode))
-            return false;
-
-    // Link the program
-    glCheck(GLEXT_glLinkProgram(shaderProgram));
-
-    // Check the link log
-    GLint success = 0;
-    glCheck(GLEXT_glGetObjectParameteriv(shaderProgram, GLEXT_GL_OBJECT_LINK_STATUS, &success));
-    if (success == GL_FALSE)
-    {
-        std::array<char, 1024> log{};
-        glCheck(GLEXT_glGetInfoLog(shaderProgram, static_cast<GLsizei>(log.size()), nullptr, log.data()));
-        err() << "Failed to link shader:" << '\n' << log.data() << std::endl;
-        glCheck(GLEXT_glDeleteObject(shaderProgram));
+    // Compile the shader via the backend
+    const auto handle = backend.compileShader(vertexShaderCode, geometryShaderCode, fragmentShaderCode);
+    if (!handle)
         return false;
-    }
 
-    // Destroy the shader if it was already created
+    // Destroy the old shader if it was already created
     if (m_shaderProgram)
-    {
-        glCheck(GLEXT_glDeleteObject(castToGlHandle(m_shaderProgram)));
-        m_shaderProgram = 0;
-    }
+        backend.destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
 
     // Reset the internal state
     m_currentTexture = -1;
     m_textures.clear();
     m_uniforms.clear();
 
-    m_shaderProgram = castFromGlHandle(shaderProgram);
+    m_shaderProgram = static_cast<unsigned int>(handle);
 
     // Force an OpenGL flush, so that the shader will appear updated
     // in all contexts immediately (solves problems in multi-threaded apps)
@@ -975,13 +932,11 @@ int Shader::getUniformLocation(const std::string& name)
 {
     // Check the cache
     if (const auto it = m_uniforms.find(name); it != m_uniforms.end())
-    {
-        // Already in cache, return it
         return it->second;
-    }
 
-    // Not in cache, request the location from OpenGL
-    const int location = GLEXT_glGetUniformLocation(castToGlHandle(m_shaderProgram), name.c_str());
+    // Not in cache, request the location from the backend
+    const int location = priv::getGraphicsBackend().getUniformLocation(
+        static_cast<priv::BackendShaderHandle>(m_shaderProgram), name);
     m_uniforms.try_emplace(name, location);
 
     if (location == -1)
