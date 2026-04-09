@@ -25,10 +25,8 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#include <SFML/Graphics/GLCheck.hpp>
-#include <SFML/Graphics/GLExtensions.hpp>
+#include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/RenderTextureImplDefault.hpp>
-#include <SFML/Graphics/TextureSaver.hpp>
 
 #include <SFML/Window/Context.hpp>
 #include <SFML/Window/ContextSettings.hpp>
@@ -86,13 +84,7 @@ bool RenderTextureImplDefault::isSrgb() const
 ////////////////////////////////////////////////////////////
 void RenderTextureImplDefault::updateTexture(unsigned int textureId)
 {
-    // Make sure that the current texture binding will be preserved
-    const TextureSaver save;
-
-    // Copy the rendered pixels to the texture
-    glCheck(glBindTexture(GL_TEXTURE_2D, textureId));
-    glCheck(
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, static_cast<GLsizei>(m_size.x), static_cast<GLsizei>(m_size.y)));
+    getGraphicsBackend().updateTextureFromFramebuffer(static_cast<BackendTextureHandle>(textureId), m_size, {0, 0});
 }
 
 } // namespace sf::priv

@@ -27,16 +27,12 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/GraphicsBackend.hpp>
 #include <SFML/Graphics/RenderTextureImpl.hpp>
 
 #include <SFML/Window/GlResource.hpp>
 
-#include <SFML/System/Vector2.hpp>
-
 #include <memory>
-#include <unordered_map>
-
-#include <cstdint>
 
 
 namespace sf
@@ -102,14 +98,6 @@ private:
     bool create(Vector2u size, unsigned int textureId, const ContextSettings& settings) override;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Create an FBO in the current context
-    ///
-    /// \return `true` if creation has been successful
-    ///
-    ////////////////////////////////////////////////////////////
-    bool createFrameBuffer();
-
-    ////////////////////////////////////////////////////////////
     /// \brief Activate or deactivate the render texture for rendering
     ///
     /// \param active `true` to activate, `false` to deactivate
@@ -141,21 +129,8 @@ private:
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    struct FrameBufferObject;
-
-    using FrameBufferObjectMap = std::unordered_map<std::uint64_t, std::weak_ptr<FrameBufferObject>>;
-
-    FrameBufferObjectMap m_frameBuffers; //!< OpenGL frame buffer objects per context
-    FrameBufferObjectMap m_multisampleFrameBuffers; //!< Optional per-context OpenGL frame buffer objects with multisample attachments
-    unsigned int             m_depthStencilBuffer{}; //!< Optional depth/stencil buffer attached to the frame buffer
-    unsigned int             m_colorBuffer{};        //!< Optional multisample color buffer attached to the frame buffer
-    Vector2u                 m_size;                 //!< Width and height of the attachments
-    std::unique_ptr<Context> m_context;              //!< Backup OpenGL context, used when none already exist
-    unsigned int             m_textureId{};          //!< The ID of the texture to attach to the FBO
-    bool                     m_multisample{};        //!< Whether we have to create a multisample frame buffer as well
-    bool                     m_depth{};              //!< Whether we have depth attachment
-    bool                     m_stencil{};            //!< Whether we have stencil attachment
-    bool                     m_sRgb{};               //!< Whether we need to encode drawn pixels into sRGB color space
+    BackendFramebufferHandle     m_framebufferHandle{}; //!< Backend handle for the framebuffer
+    std::unique_ptr<Context>     m_context;             //!< Backup OpenGL context, used when none already exist
 };
 
 } // namespace priv

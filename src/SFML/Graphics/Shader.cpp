@@ -904,9 +904,9 @@ bool Shader::compile(std::string_view vertexShaderCode, std::string_view geometr
 
     m_shaderProgram = static_cast<unsigned int>(handle);
 
-    // Force an OpenGL flush, so that the shader will appear updated
+    // Force a pipeline flush, so that the shader will appear updated
     // in all contexts immediately (solves problems in multi-threaded apps)
-    glCheck(glFlush());
+    priv::getGraphicsBackend().flushPipeline();
 
     return true;
 }
@@ -916,18 +916,18 @@ bool Shader::compile(std::string_view vertexShaderCode, std::string_view geometr
 void Shader::bindTextures() const
 {
 #ifndef SFML_OPENGL_ES
+    auto& backend = priv::getGraphicsBackend();
+
     auto it = m_textures.begin();
     for (std::size_t i = 0; i < m_textures.size(); ++i)
     {
-        const auto index = static_cast<GLsizei>(i + 1);
-        glCheck(GLEXT_glUniform1i(it->first, index));
-        glCheck(GLEXT_glActiveTexture(GLEXT_GL_TEXTURE0 + static_cast<GLenum>(index)));
-        Texture::bind(it->second);
+        const auto index = static_cast<int>(i + 1);
+        backend.setUniformTexture(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+                                  it->first,
+                                  static_cast<priv::BackendTextureHandle>(it->second->getNativeHandle()),
+                                  index);
         ++it;
     }
-
-    // Make sure that the texture unit which is left active is the number 0
-    glCheck(GLEXT_glActiveTexture(GLEXT_GL_TEXTURE0));
 #endif
 }
 

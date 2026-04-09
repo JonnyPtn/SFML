@@ -27,8 +27,6 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/Drawable.hpp>
-#include <SFML/Graphics/GLCheck.hpp>
-#include <SFML/Graphics/GLExtensions.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Shader.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -257,39 +255,25 @@ void RenderTarget::draw(const Vertex* vertices, std::size_t vertexCount, Primiti
             }
         }
 
+        auto& backend = priv::getGraphicsBackend();
+
         setupDraw(useVertexCache, states);
 
         // Check if texture coordinates array is needed, and update client state accordingly
         const bool enableTexCoordsArray = (states.texture || states.shader);
         if (!m_cache.enable || (enableTexCoordsArray != m_cache.texCoordsArrayEnabled))
-        {
-            if (enableTexCoordsArray)
-                glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-            else
-                glCheck(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
-        }
+            backend.setTexCoordsEnabled(enableTexCoordsArray);
 
         // If we switch between non-cache and cache mode or enable texture
         // coordinates we need to set up the pointers to the vertices' components
         if (!m_cache.enable || !useVertexCache || !m_cache.useVertexCache)
         {
-            const auto* data = reinterpret_cast<const std::byte*>(vertices);
-
-            // If we pre-transform the vertices, we must use our internal vertex cache
-            if (useVertexCache)
-                data = reinterpret_cast<const std::byte*>(m_cache.vertexCache.data());
-
-            glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), data + 0));
-            glCheck(glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), data + 8));
-            if (enableTexCoordsArray)
-                glCheck(glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), data + 12));
+            const Vertex* vertexData = useVertexCache ? m_cache.vertexCache.data() : vertices;
+            backend.setupVertexData(vertexData, vertexCount);
         }
         else if (enableTexCoordsArray && !m_cache.texCoordsArrayEnabled)
         {
-            // If we enter this block, we are already using our internal vertex cache
-            const auto* data = reinterpret_cast<const std::byte*>(m_cache.vertexCache.data());
-
-            glCheck(glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), data + 12));
+            backend.setupVertexData(m_cache.vertexCache.data(), vertexCount);
         }
 
         drawPrimitives(type, 0, vertexCount);
@@ -332,23 +316,21 @@ void RenderTarget::draw(const VertexBuffer& vertexBuffer, std::size_t firstVerte
 
     if (RenderTargetImpl::isActive(m_id) || setActive(true))
     {
-        setupDraw(false, states);
+        auto& backend = priv::getGraphicsBackend();
 
-        // Bind vertex buffer
-        VertexBuffer::bind(&vertexBuffer);
+        setupDraw(false, states);
 
         // Always enable texture coordinates
         if (!m_cache.enable || !m_cache.texCoordsArrayEnabled)
-            glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+            backend.setTexCoordsEnabled(true);
 
-        glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void*>(0)));
-        glCheck(glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), reinterpret_cast<const void*>(8)));
-        glCheck(glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void*>(12)));
+        // Bind vertex buffer and set up vertex pointers
+        backend.setupVertexBuffer(static_cast<priv::BackendBufferHandle>(vertexBuffer.getNativeHandle()));
 
         drawPrimitives(vertexBuffer.getPrimitiveType(), firstVertex, vertexCount);
 
         // Unbind vertex buffer
-        VertexBuffer::bind(nullptr);
+        backend.bindBuffer(0);
 
         cleanupDraw(states);
 
@@ -411,28 +393,7 @@ bool RenderTarget::setActive(bool active)
 void RenderTarget::pushGLStates()
 {
     if (RenderTargetImpl::isActive(m_id) || setActive(true))
-    {
-#ifdef SFML_DEBUG
-        // make sure that the user didn't leave an unchecked OpenGL error
-        const GLenum error = glGetError();
-        if (error != GL_NO_ERROR)
-        {
-            err() << "OpenGL error (" << error << ") detected in user code, "
-                  << "you should check for errors with glGetError()" << std::endl;
-        }
-#endif
-
-#ifndef SFML_OPENGL_ES
-        glCheck(glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS));
-        glCheck(glPushAttrib(GL_ALL_ATTRIB_BITS));
-#endif
-        glCheck(glMatrixMode(GL_MODELVIEW));
-        glCheck(glPushMatrix());
-        glCheck(glMatrixMode(GL_PROJECTION));
-        glCheck(glPushMatrix());
-        glCheck(glMatrixMode(GL_TEXTURE));
-        glCheck(glPushMatrix());
-    }
+        priv::getGraphicsBackend().pushGLStates();
 
     resetGLStates();
 }
@@ -442,18 +403,7 @@ void RenderTarget::pushGLStates()
 void RenderTarget::popGLStates()
 {
     if (RenderTargetImpl::isActive(m_id) || setActive(true))
-    {
-        glCheck(glMatrixMode(GL_PROJECTION));
-        glCheck(glPopMatrix());
-        glCheck(glMatrixMode(GL_MODELVIEW));
-        glCheck(glPopMatrix());
-        glCheck(glMatrixMode(GL_TEXTURE));
-        glCheck(glPopMatrix());
-#ifndef SFML_OPENGL_ES
-        glCheck(glPopClientAttrib());
-        glCheck(glPopAttrib());
-#endif
-    }
+        priv::getGraphicsBackend().popGLStates();
 }
 
 

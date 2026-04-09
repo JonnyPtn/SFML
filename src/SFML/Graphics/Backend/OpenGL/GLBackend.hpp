@@ -29,6 +29,11 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Backend/GraphicsBackend.hpp>
 
+#include <SFML/Window/GlResource.hpp>
+
+#include <memory>
+#include <unordered_map>
+
 
 namespace sf::priv
 {
@@ -37,14 +42,20 @@ namespace sf::priv
 /// \brief OpenGL implementation of the GraphicsBackend interface
 ///
 ////////////////////////////////////////////////////////////
-class GLBackend : public GraphicsBackend
+class GLBackend : public GraphicsBackend, GlResource
 {
 public:
     ////////////////////////////////////////////////////////////
     /// \brief Default constructor
     ///
     ////////////////////////////////////////////////////////////
-    GLBackend() = default;
+    GLBackend();
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Destructor
+    ///
+    ////////////////////////////////////////////////////////////
+    ~GLBackend() override;
 
     ////////////////////////////////////////////////////////////
     // Render target operations
@@ -69,6 +80,7 @@ public:
     // Drawing
     ////////////////////////////////////////////////////////////
 
+    void setTexCoordsEnabled(bool enable) override;
     void setupVertexData(const Vertex* vertices, std::size_t count) override;
     void setupVertexBuffer(BackendBufferHandle buffer) override;
     void applyTransform(const Transform& projection, const Transform& model) override;
@@ -176,10 +188,42 @@ public:
     bool         isNonPowerOfTwoTextureSupported() const override;
 
     ////////////////////////////////////////////////////////////
+    // Pipeline operations
+    ////////////////////////////////////////////////////////////
+
+    void flushPipeline() override;
+    void pushGLStates() override;
+    void popGLStates() override;
+    void bindBuffer(BackendBufferHandle buffer) override;
+
+    ////////////////////////////////////////////////////////////
     // OpenGL-specific: Reset internal GL states for first draw
     ////////////////////////////////////////////////////////////
 
     void resetGLStates();
+
+private:
+    ////////////////////////////////////////////////////////////
+    /// \brief Internal framebuffer data (defined in GLBackend.cpp)
+    ///
+    ////////////////////////////////////////////////////////////
+    struct GLFramebufferData;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Create an FBO for the current OpenGL context
+    ///
+    /// \param data Framebuffer data to create the FBO for
+    ///
+    /// \return `true` if creation was successful
+    ///
+    ////////////////////////////////////////////////////////////
+    bool createFBOForContext(GLFramebufferData& data);
+
+    ////////////////////////////////////////////////////////////
+    // Member data
+    ////////////////////////////////////////////////////////////
+    std::unordered_map<BackendFramebufferHandle, std::unique_ptr<GLFramebufferData>> m_framebuffers;
+    BackendFramebufferHandle m_nextFramebufferHandle{1};
 };
 
 } // namespace sf::priv

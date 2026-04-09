@@ -253,7 +253,8 @@ void VertexBuffer::bind(const VertexBuffer* vertexBuffer)
 
     const TransientContextLock lock;
 
-    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, vertexBuffer ? vertexBuffer->m_buffer : 0));
+    priv::getGraphicsBackend().bindBuffer(
+        static_cast<priv::BackendBufferHandle>(vertexBuffer ? vertexBuffer->m_buffer : 0));
 }
 
 

@@ -31,6 +31,7 @@
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Transform.hpp>
 
+#include <SFML/Window/Context.hpp>
 #include <SFML/Window/ContextSettings.hpp>
 
 #include <SFML/System/EnumArray.hpp>
@@ -173,6 +174,46 @@ std::uint32_t usageToGlConstant(sf::VertexBuffer::Usage usage)
 
 namespace sf::priv
 {
+
+////////////////////////////////////////////////////////////
+// Internal framebuffer data
+////////////////////////////////////////////////////////////
+
+struct GLBackend::GLFramebufferData
+{
+    struct FBO
+    {
+        ~FBO()
+        {
+            if (object)
+                glCheck(GLEXT_glDeleteFramebuffers(1, &object));
+        }
+
+        GLuint object{};
+    };
+
+    using FBOMap = std::unordered_map<std::uint64_t, std::weak_ptr<FBO>>;
+
+    FBOMap       frameBuffers;
+    FBOMap       multisampleFrameBuffers;
+    GLuint       depthStencilBuffer{};
+    GLuint       colorBuffer{};
+    GLuint       textureId{};
+    Vector2u     size;
+    bool         multisample{};
+    bool         hasDepth{};
+    bool         hasStencil{};
+    bool         sRgb{};
+};
+
+
+////////////////////////////////////////////////////////////
+GLBackend::GLBackend() = default;
+
+
+////////////////////////////////////////////////////////////
+GLBackend::~GLBackend() = default;
+
 
 ////////////////////////////////////////////////////////////
 // Render target operations
@@ -321,6 +362,16 @@ void GLBackend::setColorMask(bool enable)
 // Drawing
 ////////////////////////////////////////////////////////////
 
+void GLBackend::setTexCoordsEnabled(bool enable)
+{
+    if (enable)
+        glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+    else
+        glCheck(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
+}
+
+
+////////////////////////////////////////////////////////////
 void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count)
 {
     (void)count;
@@ -1209,54 +1260,512 @@ bool GLBackend::copyBuffer(BackendBufferHandle destHandle,
 
 
 ////////////////////////////////////////////////////////////
-// Framebuffer operations (stubs for now — will be fleshed
-// out when RenderTextureImplFBO is refactored)
+// Framebuffer operations
 ////////////////////////////////////////////////////////////
 
 BackendFramebufferHandle GLBackend::createFramebuffer(Vector2u               size,
                                                       BackendTextureHandle   texture,
                                                       const ContextSettings& settings)
 {
-    // TODO: Extract from RenderTextureImplFBO
-    (void)size;
-    (void)texture;
-    (void)settings;
-    return 0;
+    ensureExtensionsInit();
+
+    if (!GLEXT_framebuffer_object)
+        return 0;
+
+    if (settings.antiAliasingLevel && !(GLEXT_framebuffer_multisample && GLEXT_framebuffer_blit))
+        return 0;
+
+    auto data  = std::make_unique<GLFramebufferData>();
+    data->size      = size;
+    data->textureId = static_cast<GLuint>(texture);
+    data->sRgb      = settings.sRgbCapable && GL_EXT_texture_sRGB;
+
+#ifndef SFML_OPENGL_ES
+
+    // Check if the requested anti-aliasing level is supported
+    if (settings.antiAliasingLevel)
+    {
+        GLint samples = 0;
+        glCheck(glGetIntegerv(GLEXT_GL_MAX_SAMPLES, &samples));
+
+        if (settings.antiAliasingLevel > static_cast<unsigned int>(samples))
+        {
+            err() << "Impossible to create render texture (unsupported anti-aliasing level)"
+                  << " Requested: " << settings.antiAliasingLevel << " Maximum supported: " << samples << std::endl;
+            return 0;
+        }
+    }
+
+#endif
+
+    if (!settings.antiAliasingLevel)
+    {
+        // Create the depth/stencil buffer if requested
+        if (settings.stencilBits && settings.depthBits)
+        {
+            if (!GLEXT_packed_depth_stencil)
+            {
+                err() << "Impossible to create render texture (combined depth/stencil buffer not supported)" << std::endl;
+                return 0;
+            }
+
+            GLuint depthStencil = 0;
+            glCheck(GLEXT_glGenRenderbuffers(1, &depthStencil));
+            data->depthStencilBuffer = depthStencil;
+            if (!data->depthStencilBuffer)
+            {
+                err() << "Impossible to create render texture (failed to create the attached depth/stencil buffer)"
+                      << std::endl;
+                return 0;
+            }
+            glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data->depthStencilBuffer));
+            glCheck(GLEXT_glRenderbufferStorage(GLEXT_GL_RENDERBUFFER,
+                                                GLEXT_GL_DEPTH24_STENCIL8,
+                                                static_cast<GLsizei>(size.x),
+                                                static_cast<GLsizei>(size.y)));
+
+            data->hasDepth   = true;
+            data->hasStencil = true;
+        }
+        else if (settings.depthBits)
+        {
+            GLuint depthStencil = 0;
+            glCheck(GLEXT_glGenRenderbuffers(1, &depthStencil));
+            data->depthStencilBuffer = depthStencil;
+            if (!data->depthStencilBuffer)
+            {
+                err() << "Impossible to create render texture (failed to create the attached depth buffer)" << std::endl;
+                return 0;
+            }
+            glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data->depthStencilBuffer));
+            glCheck(GLEXT_glRenderbufferStorage(GLEXT_GL_RENDERBUFFER,
+                                                GLEXT_GL_DEPTH_COMPONENT,
+                                                static_cast<GLsizei>(size.x),
+                                                static_cast<GLsizei>(size.y)));
+
+            data->hasDepth   = true;
+            data->hasStencil = false;
+        }
+        else if (settings.stencilBits)
+        {
+            GLuint depthStencil = 0;
+            glCheck(GLEXT_glGenRenderbuffers(1, &depthStencil));
+            data->depthStencilBuffer = depthStencil;
+            if (!data->depthStencilBuffer)
+            {
+                err() << "Impossible to create render texture (failed to create the attached stencil buffer)" << std::endl;
+                return 0;
+            }
+            glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data->depthStencilBuffer));
+            glCheck(GLEXT_glRenderbufferStorage(GLEXT_GL_RENDERBUFFER,
+                                                GLEXT_GL_STENCIL_INDEX8,
+                                                static_cast<GLsizei>(size.x),
+                                                static_cast<GLsizei>(size.y)));
+
+            data->hasDepth   = false;
+            data->hasStencil = true;
+        }
+    }
+    else
+    {
+
+#ifndef SFML_OPENGL_ES
+
+        // Create the multisample color buffer
+        GLuint color = 0;
+        glCheck(GLEXT_glGenRenderbuffers(1, &color));
+        data->colorBuffer = color;
+        if (!data->colorBuffer)
+        {
+            err() << "Impossible to create render texture (failed to create the attached multisample color buffer)"
+                  << std::endl;
+            return 0;
+        }
+        glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data->colorBuffer));
+        glCheck(GLEXT_glRenderbufferStorageMultisample(GLEXT_GL_RENDERBUFFER,
+                                                       static_cast<GLsizei>(settings.antiAliasingLevel),
+                                                       data->sRgb ? GL_SRGB8_ALPHA8_EXT : GL_RGBA,
+                                                       static_cast<GLsizei>(size.x),
+                                                       static_cast<GLsizei>(size.y)));
+
+        // Create the multisample depth/stencil buffer if requested
+        if (settings.stencilBits && settings.depthBits)
+        {
+            GLuint depthStencil = 0;
+            glCheck(GLEXT_glGenRenderbuffers(1, &depthStencil));
+            data->depthStencilBuffer = depthStencil;
+            if (!data->depthStencilBuffer)
+            {
+                err() << "Impossible to create render texture (failed to create the attached multisample "
+                         "depth/stencil buffer)"
+                      << std::endl;
+                return 0;
+            }
+            glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data->depthStencilBuffer));
+            glCheck(GLEXT_glRenderbufferStorageMultisample(GLEXT_GL_RENDERBUFFER,
+                                                           static_cast<GLsizei>(settings.antiAliasingLevel),
+                                                           GLEXT_GL_DEPTH24_STENCIL8,
+                                                           static_cast<GLsizei>(size.x),
+                                                           static_cast<GLsizei>(size.y)));
+
+            data->hasDepth   = true;
+            data->hasStencil = true;
+        }
+        else if (settings.depthBits)
+        {
+            GLuint depthStencil = 0;
+            glCheck(GLEXT_glGenRenderbuffers(1, &depthStencil));
+            data->depthStencilBuffer = depthStencil;
+            if (!data->depthStencilBuffer)
+            {
+                err() << "Impossible to create render texture (failed to create the attached multisample depth "
+                         "buffer)"
+                      << std::endl;
+                return 0;
+            }
+            glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data->depthStencilBuffer));
+            glCheck(GLEXT_glRenderbufferStorageMultisample(GLEXT_GL_RENDERBUFFER,
+                                                           static_cast<GLsizei>(settings.antiAliasingLevel),
+                                                           GLEXT_GL_DEPTH_COMPONENT,
+                                                           static_cast<GLsizei>(size.x),
+                                                           static_cast<GLsizei>(size.y)));
+
+            data->hasDepth   = true;
+            data->hasStencil = false;
+        }
+        else if (settings.stencilBits)
+        {
+            GLuint depthStencil = 0;
+            glCheck(GLEXT_glGenRenderbuffers(1, &depthStencil));
+            data->depthStencilBuffer = depthStencil;
+            if (!data->depthStencilBuffer)
+            {
+                err() << "Impossible to create render texture (failed to create the attached multisample "
+                         "stencil buffer)"
+                      << std::endl;
+                return 0;
+            }
+            glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data->depthStencilBuffer));
+            glCheck(GLEXT_glRenderbufferStorageMultisample(GLEXT_GL_RENDERBUFFER,
+                                                           static_cast<GLsizei>(settings.antiAliasingLevel),
+                                                           GLEXT_GL_STENCIL_INDEX8,
+                                                           static_cast<GLsizei>(size.x),
+                                                           static_cast<GLsizei>(size.y)));
+
+            data->hasDepth   = false;
+            data->hasStencil = true;
+        }
+
+        data->multisample = true;
+
+#else
+
+        err() << "Impossible to create render texture (failed to create the multisample render buffers)" << std::endl;
+        return 0;
+
+#endif // SFML_OPENGL_ES
+    }
+
+    const BackendFramebufferHandle handle = m_nextFramebufferHandle++;
+    m_framebuffers[handle] = std::move(data);
+    return handle;
+}
+
+
+////////////////////////////////////////////////////////////
+bool GLBackend::createFBOForContext(GLFramebufferData& data)
+{
+    // Create the framebuffer object
+    auto frameBuffer = std::make_shared<GLFramebufferData::FBO>();
+    glCheck(GLEXT_glGenFramebuffers(1, &frameBuffer->object));
+
+    if (!frameBuffer->object)
+    {
+        err() << "Impossible to create render texture (failed to create the frame buffer object)" << std::endl;
+        return false;
+    }
+    glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, frameBuffer->object));
+
+    // Link the depth/stencil renderbuffer to the frame buffer
+    if (!data.multisample && data.depthStencilBuffer)
+    {
+        if (data.hasDepth)
+        {
+            glCheck(GLEXT_glFramebufferRenderbuffer(GLEXT_GL_FRAMEBUFFER,
+                                                    GLEXT_GL_DEPTH_ATTACHMENT,
+                                                    GLEXT_GL_RENDERBUFFER,
+                                                    data.depthStencilBuffer));
+        }
+
+        if (data.hasStencil)
+        {
+            glCheck(GLEXT_glFramebufferRenderbuffer(GLEXT_GL_FRAMEBUFFER,
+                                                    GLEXT_GL_STENCIL_ATTACHMENT,
+                                                    GLEXT_GL_RENDERBUFFER,
+                                                    data.depthStencilBuffer));
+        }
+    }
+
+    // Link the texture to the frame buffer
+    glCheck(GLEXT_glFramebufferTexture2D(GLEXT_GL_FRAMEBUFFER, GLEXT_GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, data.textureId, 0));
+
+    // A final check, just to be sure...
+    if (glCheck(GLEXT_glCheckFramebufferStatus(GLEXT_GL_FRAMEBUFFER)) != GLEXT_GL_FRAMEBUFFER_COMPLETE)
+    {
+        glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, 0));
+        err() << "Impossible to create render texture (failed to link the target texture to the frame buffer)" << std::endl;
+        return false;
+    }
+
+    // Insert the FBO into our map
+    data.frameBuffers.try_emplace(Context::getActiveContextId(), frameBuffer);
+
+    // Register the object with the current context so it is automatically destroyed
+    registerUnsharedGlObject(std::move(frameBuffer));
+
+#ifndef SFML_OPENGL_ES
+
+    if (data.multisample)
+    {
+        // Create the multisample framebuffer object
+        auto multisampleFrameBuffer = std::make_shared<GLFramebufferData::FBO>();
+        glCheck(GLEXT_glGenFramebuffers(1, &multisampleFrameBuffer->object));
+
+        if (!multisampleFrameBuffer->object)
+        {
+            err() << "Impossible to create render texture (failed to create the multisample frame buffer object)"
+                  << std::endl;
+            return false;
+        }
+        glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, multisampleFrameBuffer->object));
+
+        // Link the multisample color buffer to the frame buffer
+        glCheck(GLEXT_glBindRenderbuffer(GLEXT_GL_RENDERBUFFER, data.colorBuffer));
+        glCheck(
+            GLEXT_glFramebufferRenderbuffer(GLEXT_GL_FRAMEBUFFER, GLEXT_GL_COLOR_ATTACHMENT0, GLEXT_GL_RENDERBUFFER, data.colorBuffer));
+
+        // Link the depth/stencil renderbuffer to the frame buffer
+        if (data.depthStencilBuffer)
+        {
+            if (data.hasDepth)
+            {
+                glCheck(GLEXT_glFramebufferRenderbuffer(GLEXT_GL_FRAMEBUFFER,
+                                                        GLEXT_GL_DEPTH_ATTACHMENT,
+                                                        GLEXT_GL_RENDERBUFFER,
+                                                        data.depthStencilBuffer));
+            }
+
+            if (data.hasStencil)
+            {
+                glCheck(GLEXT_glFramebufferRenderbuffer(GLEXT_GL_FRAMEBUFFER,
+                                                        GLEXT_GL_STENCIL_ATTACHMENT,
+                                                        GLEXT_GL_RENDERBUFFER,
+                                                        data.depthStencilBuffer));
+            }
+        }
+
+        // A final check, just to be sure...
+        if (glCheck(GLEXT_glCheckFramebufferStatus(GLEXT_GL_FRAMEBUFFER)) != GLEXT_GL_FRAMEBUFFER_COMPLETE)
+        {
+            glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, 0));
+            err() << "Impossible to create render texture (failed to link the render buffers to the multisample frame "
+                     "buffer)"
+                  << std::endl;
+            return false;
+        }
+
+        // Insert the FBO into our map
+        data.multisampleFrameBuffers.try_emplace(Context::getActiveContextId(), multisampleFrameBuffer);
+
+        // Register the object with the current context so it is automatically destroyed
+        registerUnsharedGlObject(std::move(multisampleFrameBuffer));
+    }
+
+#endif
+
+    return true;
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::destroyFramebuffer(BackendFramebufferHandle handle)
 {
-    // TODO: Extract from RenderTextureImplFBO
-    (void)handle;
+    const auto it = m_framebuffers.find(handle);
+    if (it == m_framebuffers.end())
+        return;
+
+    auto& data = *it->second;
+
+    const TransientContextLock contextLock;
+
+    // Destroy the color buffer
+    if (data.colorBuffer)
+    {
+        const GLuint colorBuffer = data.colorBuffer;
+        glCheck(GLEXT_glDeleteRenderbuffers(1, &colorBuffer));
+    }
+
+    // Destroy the depth/stencil buffer
+    if (data.depthStencilBuffer)
+    {
+        const GLuint depthStencilBuffer = data.depthStencilBuffer;
+        glCheck(GLEXT_glDeleteRenderbuffers(1, &depthStencilBuffer));
+    }
+
+    // Unregister FBOs with the contexts if they haven't already been destroyed
+    for (auto& entry : data.frameBuffers)
+    {
+        auto frameBuffer = entry.second.lock();
+
+        if (frameBuffer)
+            unregisterUnsharedGlObject(std::move(frameBuffer));
+    }
+
+    for (auto& entry : data.multisampleFrameBuffers)
+    {
+        auto frameBuffer = entry.second.lock();
+
+        if (frameBuffer)
+            unregisterUnsharedGlObject(std::move(frameBuffer));
+    }
+
+    m_framebuffers.erase(it);
 }
 
 
 ////////////////////////////////////////////////////////////
 bool GLBackend::bindFramebuffer(BackendFramebufferHandle handle)
 {
-    // TODO: Extract from RenderTextureImplFBO
-    (void)handle;
-    return false;
+    // Unbind (bind default framebuffer)
+    if (handle == 0)
+    {
+        glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, 0));
+        return true;
+    }
+
+    const auto it = m_framebuffers.find(handle);
+    if (it == m_framebuffers.end())
+        return false;
+
+    auto& data = *it->second;
+
+    const std::uint64_t contextId = Context::getActiveContextId();
+    if (!contextId)
+        return false;
+
+    // Lookup the FBO corresponding to the currently active context
+    if (data.multisample)
+    {
+        const auto fboIt = data.multisampleFrameBuffers.find(contextId);
+
+        if (fboIt != data.multisampleFrameBuffers.end())
+        {
+            const auto frameBuffer = fboIt->second.lock();
+
+            if (frameBuffer)
+            {
+                glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, frameBuffer->object));
+                return true;
+            }
+        }
+    }
+    else
+    {
+        const auto fboIt = data.frameBuffers.find(contextId);
+
+        if (fboIt != data.frameBuffers.end())
+        {
+            const auto frameBuffer = fboIt->second.lock();
+
+            if (frameBuffer)
+            {
+                glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, frameBuffer->object));
+                return true;
+            }
+        }
+    }
+
+    // No FBO for this context yet, create one
+    return createFBOForContext(data);
 }
 
 
 ////////////////////////////////////////////////////////////
 bool GLBackend::isFramebufferSrgb(BackendFramebufferHandle handle) const
 {
-    // TODO: Extract from RenderTextureImplFBO
-    (void)handle;
-    return false;
+    const auto it = m_framebuffers.find(handle);
+    if (it == m_framebuffers.end())
+        return false;
+
+    return it->second->sRgb;
 }
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::updateFramebufferTexture(BackendFramebufferHandle handle, BackendTextureHandle texture)
+void GLBackend::updateFramebufferTexture(BackendFramebufferHandle handle, BackendTextureHandle /* texture */)
 {
-    // TODO: Extract from RenderTextureImplFBO
+    // If multisampling is enabled, we need to resolve by blitting
+    // from our FBO with multisample renderbuffer attachments
+    // to our FBO to which our target texture is attached
+
+#ifndef SFML_OPENGL_ES
+
+    const auto it = m_framebuffers.find(handle);
+    if (it == m_framebuffers.end())
+        return;
+
+    auto& data = *it->second;
+
+    // In case of multisampling, make sure both FBOs
+    // are already available within the current context
+    if (data.multisample && data.size.x && data.size.y && bindFramebuffer(handle))
+    {
+        const std::uint64_t contextId = Context::getActiveContextId();
+
+        const auto frameBufferIt = data.frameBuffers.find(contextId);
+        const auto multisampleIt = data.multisampleFrameBuffers.find(contextId);
+
+        if ((frameBufferIt != data.frameBuffers.end()) && (multisampleIt != data.multisampleFrameBuffers.end()))
+        {
+            const auto frameBuffer            = frameBufferIt->second.lock();
+            const auto multiSampleFrameBuffer = multisampleIt->second.lock();
+
+            if (frameBuffer && multiSampleFrameBuffer)
+            {
+                // Scissor testing affects framebuffer blits as well
+                // Since we don't want scissor testing to interfere with our copying, we temporarily disable it for the blit if it is enabled
+                GLboolean scissorEnabled = GL_FALSE;
+                glCheck(glGetBooleanv(GL_SCISSOR_TEST, &scissorEnabled));
+
+                if (scissorEnabled == GL_TRUE)
+                    glCheck(glDisable(GL_SCISSOR_TEST));
+
+                // Set up the blit target (draw framebuffer) and blit (from the read framebuffer, our multisample FBO)
+                glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_DRAW_FRAMEBUFFER, frameBuffer->object));
+                glCheck(GLEXT_glBlitFramebuffer(0,
+                                                0,
+                                                static_cast<GLint>(data.size.x),
+                                                static_cast<GLint>(data.size.y),
+                                                0,
+                                                0,
+                                                static_cast<GLint>(data.size.x),
+                                                static_cast<GLint>(data.size.y),
+                                                GL_COLOR_BUFFER_BIT,
+                                                GL_NEAREST));
+                glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_DRAW_FRAMEBUFFER, multiSampleFrameBuffer->object));
+
+                // Re-enable scissor testing if it was previously enabled
+                if (scissorEnabled == GL_TRUE)
+                    glCheck(glEnable(GL_SCISSOR_TEST));
+            }
+        }
+    }
+
+#else
+
     (void)handle;
-    (void)texture;
+
+#endif // SFML_OPENGL_ES
 }
 
 
@@ -1297,6 +1806,65 @@ bool GLBackend::isVertexBufferAvailable() const
 bool GLBackend::isNonPowerOfTwoTextureSupported() const
 {
     return GLEXT_texture_non_power_of_two;
+}
+
+
+////////////////////////////////////////////////////////////
+// Pipeline operations
+////////////////////////////////////////////////////////////
+
+void GLBackend::flushPipeline()
+{
+    glCheck(glFlush());
+}
+
+
+////////////////////////////////////////////////////////////
+void GLBackend::pushGLStates()
+{
+#ifdef SFML_DEBUG
+    // Make sure that the user didn't leave an unchecked OpenGL error
+    const GLenum error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        err() << "OpenGL error (" << error << ") detected in user code, "
+              << "you should check for errors with glGetError()" << std::endl;
+    }
+#endif
+
+#ifndef SFML_OPENGL_ES
+    glCheck(glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS));
+    glCheck(glPushAttrib(GL_ALL_ATTRIB_BITS));
+#endif
+    glCheck(glMatrixMode(GL_MODELVIEW));
+    glCheck(glPushMatrix());
+    glCheck(glMatrixMode(GL_PROJECTION));
+    glCheck(glPushMatrix());
+    glCheck(glMatrixMode(GL_TEXTURE));
+    glCheck(glPushMatrix());
+}
+
+
+////////////////////////////////////////////////////////////
+void GLBackend::popGLStates()
+{
+    glCheck(glMatrixMode(GL_PROJECTION));
+    glCheck(glPopMatrix());
+    glCheck(glMatrixMode(GL_MODELVIEW));
+    glCheck(glPopMatrix());
+    glCheck(glMatrixMode(GL_TEXTURE));
+    glCheck(glPopMatrix());
+#ifndef SFML_OPENGL_ES
+    glCheck(glPopClientAttrib());
+    glCheck(glPopAttrib());
+#endif
+}
+
+
+////////////////////////////////////////////////////////////
+void GLBackend::bindBuffer(BackendBufferHandle buffer)
+{
+    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, static_cast<unsigned int>(buffer)));
 }
 
 

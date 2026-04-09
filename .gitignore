@@ -3,6 +3,7 @@
 .vs/
 .vscode/
 build/
+build-*/
 .DS_Store
 compile_commands.json
 MakeFile
