@@ -524,47 +524,48 @@ void GLBackend::bindTexture(BackendTextureHandle handle,
     {
         glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle)));
 
-        if (coordinateType == CoordinateType::Pixels)
+        // Check if we need a special texture matrix
+        if ((coordinateType == CoordinateType::Pixels) || pixelsFlipped ||
+            ((coordinateType == CoordinateType::Normalized) && (textureSize != actualSize)))
         {
-            // Set up a texture matrix to convert pixel coordinates to normalized [0..1]
-            GLfloat matrix[16] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
-                                  0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f};
+            // clang-format off
+            float matrix[16] = {1.f, 0.f, 0.f, 0.f,
+                                0.f, 1.f, 0.f, 0.f,
+                                0.f, 0.f, 1.f, 0.f,
+                                0.f, 0.f, 0.f, 1.f};
+            // clang-format on
 
-            matrix[0]  = 1.f / static_cast<float>(actualSize.x);
-            matrix[5]  = 1.f / static_cast<float>(actualSize.y);
-            matrix[12] = static_cast<float>(textureSize.x) / static_cast<float>(actualSize.x) / 2.f;
-            matrix[13] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y) / 2.f;
+            // Pixel coordinates: scale [0..size] to [0..1]
+            if (coordinateType == CoordinateType::Pixels)
+            {
+                matrix[0] = 1.f / static_cast<float>(actualSize.x);
+                matrix[5] = 1.f / static_cast<float>(actualSize.y);
+            }
 
-            // Unused but left from original for reference; adjust below based on pixel flip
-            (void)pixelsFlipped;
+            // Normalized coords with NPOT padding: scale to actual/padded ratio
+            if ((coordinateType == CoordinateType::Normalized) && (textureSize != actualSize))
+            {
+                matrix[0] = static_cast<float>(textureSize.x) / static_cast<float>(actualSize.x);
+                matrix[5] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
+            }
 
-            // Actually: the original code does not construct the matrix exactly this way.
-            // For a faithful extraction, we replicate the original Texture::bind behavior.
-            // The exact matrix setup is done differently — position/size based.
-
-            float matrix2[16] = {1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f,
-                                 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f};
-
-            // Scale from pixel coords to [0, textureSize/actualSize]
-            matrix2[0] = 1.f / static_cast<float>(actualSize.x);
-            matrix2[5] = 1.f / static_cast<float>(actualSize.y);
-
+            // Flip Y axis if pixels are flipped
             if (pixelsFlipped)
             {
-                matrix2[5]  = -matrix2[5];
-                matrix2[13] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
+                matrix[5]  = -matrix[5];
+                matrix[13] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
             }
 
             glCheck(glMatrixMode(GL_TEXTURE));
-            glCheck(glLoadMatrixf(matrix2));
-            glCheck(glMatrixMode(GL_MODELVIEW));
+            glCheck(glLoadMatrixf(matrix));
         }
         else
         {
             glCheck(glMatrixMode(GL_TEXTURE));
             glCheck(glLoadIdentity());
-            glCheck(glMatrixMode(GL_MODELVIEW));
         }
+
+        glCheck(glMatrixMode(GL_MODELVIEW));
     }
     else
     {

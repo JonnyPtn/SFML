@@ -26,6 +26,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/GLCheck.hpp>
 #include <SFML/Graphics/GLExtensions.hpp>
 #include <SFML/Graphics/Shader.hpp>
@@ -788,10 +789,12 @@ void Shader::bind(const Shader* shader)
         return;
     }
 
+    auto& backend = priv::getGraphicsBackend();
+
     if (shader && shader->m_shaderProgram)
     {
         // Enable the program
-        glCheck(GLEXT_glUseProgramObject(castToGlHandle(shader->m_shaderProgram)));
+        backend.bindShader(static_cast<priv::BackendShaderHandle>(shader->m_shaderProgram));
 
         // Bind the textures
         shader->bindTextures();
@@ -803,7 +806,7 @@ void Shader::bind(const Shader* shader)
     else
     {
         // Bind no shader
-        glCheck(GLEXT_glUseProgramObject({}));
+        backend.bindShader(0);
     }
 }
 

@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/GLCheck.hpp>
 #include <SFML/Graphics/GLExtensions.hpp>
 #include <SFML/Graphics/Image.hpp>
@@ -940,72 +941,15 @@ void Texture::bind(const Texture* texture, CoordinateType coordinateType)
 
     if (texture && texture->m_texture)
     {
-        // When debugging, ensure that the texture name is valid
-        assert((glIsTexture(texture->m_texture) == GL_TRUE) &&
-               "Texture to be bound is invalid, check if the texture is still being used after it has been destroyed");
-
-        // Bind the texture
-        glCheck(glBindTexture(GL_TEXTURE_2D, texture->m_texture));
-
-        // Check if we need to define a special texture matrix
-        if ((coordinateType == CoordinateType::Pixels) || texture->m_pixelsFlipped ||
-            ((coordinateType == CoordinateType::Normalized) && (texture->m_size != texture->m_actualSize)))
-        {
-            // clang-format off
-            std::array matrix = {1.f, 0.f, 0.f, 0.f,
-                                 0.f, 1.f, 0.f, 0.f,
-                                 0.f, 0.f, 1.f, 0.f,
-                                 0.f, 0.f, 0.f, 1.f};
-            // clang-format on
-
-            // If non-normalized coordinates (= pixels) are requested, we need to
-            // setup scale factors that convert the range [0 .. size] to [0 .. 1]
-            if (coordinateType == CoordinateType::Pixels)
-            {
-                matrix[0] = 1.f / static_cast<float>(texture->m_actualSize.x);
-                matrix[5] = 1.f / static_cast<float>(texture->m_actualSize.y);
-            }
-
-            // If normalized coordinates are used when NPOT textures aren't supported,
-            // then we need to setup scale factors to make the coordinates relative to the actual POT size
-            if ((coordinateType == CoordinateType::Normalized) && (texture->m_size != texture->m_actualSize))
-            {
-                matrix[0] = static_cast<float>(texture->m_size.x) / static_cast<float>(texture->m_actualSize.x);
-                matrix[5] = static_cast<float>(texture->m_size.y) / static_cast<float>(texture->m_actualSize.y);
-            }
-
-            // If pixels are flipped we must invert the Y axis
-            if (texture->m_pixelsFlipped)
-            {
-                matrix[5]  = -matrix[5];
-                matrix[13] = static_cast<float>(texture->m_size.y) / static_cast<float>(texture->m_actualSize.y);
-            }
-
-            // Load the matrix
-            glCheck(glMatrixMode(GL_TEXTURE));
-            glCheck(glLoadMatrixf(matrix.data()));
-        }
-        else
-        {
-            // Reset the texture matrix
-            glCheck(glMatrixMode(GL_TEXTURE));
-            glCheck(glLoadIdentity());
-        }
-
-        // Go back to model-view mode (sf::RenderTarget relies on it)
-        glCheck(glMatrixMode(GL_MODELVIEW));
+        priv::getGraphicsBackend().bindTexture(static_cast<priv::BackendTextureHandle>(texture->m_texture),
+                                               coordinateType,
+                                               texture->m_size,
+                                               texture->m_actualSize,
+                                               texture->m_pixelsFlipped);
     }
     else
     {
-        // Bind no texture
-        glCheck(glBindTexture(GL_TEXTURE_2D, 0));
-
-        // Reset the texture matrix
-        glCheck(glMatrixMode(GL_TEXTURE));
-        glCheck(glLoadIdentity());
-
-        // Go back to model-view mode (sf::RenderTarget relies on it)
-        glCheck(glMatrixMode(GL_MODELVIEW));
+        priv::getGraphicsBackend().bindTexture(0, coordinateType, {}, {}, false);
     }
 }
 
