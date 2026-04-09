@@ -26,8 +26,6 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
-#include <SFML/Graphics/GLCheck.hpp>
-#include <SFML/Graphics/GLExtensions.hpp>
 #include <SFML/Graphics/RenderTextureImplFBO.hpp>
 
 #include <SFML/Window/Context.hpp>
@@ -57,35 +55,23 @@ bool RenderTextureImplFBO::isAvailable()
 {
     const TransientContextLock lock;
 
-    // Make sure that extensions are initialized
-    ensureExtensionsInit();
-
-    return GLEXT_framebuffer_object != 0;
+    return getGraphicsBackend().isFramebufferAvailable();
 }
 
 
 ////////////////////////////////////////////////////////////
 unsigned int RenderTextureImplFBO::getMaximumAntiAliasingLevel()
 {
-#ifdef SFML_OPENGL_ES
-
-    return 0;
-
-#else
-
     const TransientContextLock lock;
-    GLint                      samples = 0;
-    glCheck(glGetIntegerv(GLEXT_GL_MAX_SAMPLES, &samples));
-    return static_cast<unsigned int>(samples);
 
-#endif
+    return getGraphicsBackend().getMaxAntiAliasingLevel();
 }
 
 
 ////////////////////////////////////////////////////////////
 void RenderTextureImplFBO::unbind()
 {
-    glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, 0));
+    getGraphicsBackend().bindFramebuffer(0);
 }
 
 

@@ -27,8 +27,6 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
-#include <SFML/Graphics/GLCheck.hpp>
-#include <SFML/Graphics/GLExtensions.hpp>
 #include <SFML/Graphics/Shader.hpp>
 #include <SFML/Graphics/Texture.hpp>
 
@@ -50,40 +48,8 @@
 
 #include <cstdint>
 
-// GL handle casting macros — only needed on non-ES platforms
-#ifndef SFML_OPENGL_ES
-
-#if defined(SFML_SYSTEM_MACOS) || defined(SFML_SYSTEM_IOS)
-
-#define castToGlHandle(x)   reinterpret_cast<GLEXT_GLhandle>(std::ptrdiff_t{x})
-#define castFromGlHandle(x) static_cast<unsigned int>(reinterpret_cast<std::ptrdiff_t>(x))
-
-#else
-
-#define castToGlHandle(x)   (x)
-#define castFromGlHandle(x) (x)
-
-#endif
-
-#endif // SFML_OPENGL_ES
-
 namespace
 {
-#ifndef SFML_OPENGL_ES
-// Retrieve the maximum number of texture units available
-std::size_t getMaxTextureUnits()
-{
-    static const GLint maxUnits = []
-    {
-        GLint value = 0;
-        glCheck(glGetIntegerv(GLEXT_GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &value));
-
-        return value;
-    }();
-
-    return static_cast<std::size_t>(maxUnits);
-}
-#endif // SFML_OPENGL_ES
 
 // Read the contents of a file into an array of char
 bool getFileContents(const std::filesystem::path& filename, std::vector<char>& buffer)
@@ -180,43 +146,20 @@ std::vector<float> flatten(const sf::Glsl::Vec4* vectorArray, std::size_t length
 namespace sf
 {
 
-#ifndef SFML_OPENGL_ES
 ////////////////////////////////////////////////////////////
 struct Shader::UniformBinder
 {
-    UniformBinder(Shader& shader, const std::string& name) : currentProgram(castToGlHandle(shader.m_shaderProgram))
+    UniformBinder(Shader& shader, const std::string& name)
     {
-        if (currentProgram)
-        {
-            savedProgram = glCheck(GLEXT_glGetHandle(GLEXT_GL_PROGRAM_OBJECT));
-            if (currentProgram != savedProgram)
-                glCheck(GLEXT_glUseProgramObject(currentProgram));
+        priv::getGraphicsBackend().prepareUniformUpdate(
+            static_cast<priv::BackendShaderHandle>(shader.m_shaderProgram));
 
-            location = shader.getUniformLocation(name);
-        }
+        location = shader.getUniformLocation(name);
     }
 
     ~UniformBinder()
     {
-        if (currentProgram && (currentProgram != savedProgram))
-            glCheck(GLEXT_glUseProgramObject(savedProgram));
-    }
-
-    UniformBinder(const UniformBinder&) = delete;
-    UniformBinder& operator=(const UniformBinder&) = delete;
-
-    TransientContextLock lock;
-    GLEXT_GLhandle       savedProgram{};
-    GLEXT_GLhandle       currentProgram;
-    GLint                location{-1};
-};
-
-#else // SFML_OPENGL_ES
-
-struct Shader::UniformBinder
-{
-    UniformBinder(Shader& shader, const std::string& name) : location(shader.getUniformLocation(name))
-    {
+        priv::getGraphicsBackend().finalizeUniformUpdate();
     }
 
     UniformBinder(const UniformBinder&) = delete;
@@ -225,8 +168,6 @@ struct Shader::UniformBinder
     TransientContextLock lock;
     int                  location{-1};
 };
-
-#endif // SFML_OPENGL_ES
 
 
 ////////////////////////////////////////////////////////////
@@ -668,11 +609,7 @@ void Shader::setUniform(const std::string& name, const Texture& texture)
         if (it == m_textures.end())
         {
             // New entry, make sure there are enough texture units
-#ifndef SFML_OPENGL_ES
-            if (m_textures.size() + 1 >= getMaxTextureUnits())
-#else
-            if (false)
-#endif
+            if (m_textures.size() + 1 >= priv::getGraphicsBackend().getMaxTextureUnits())
             {
                 err() << "Impossible to use texture " << std::quoted(name)
                       << " for shader: all available texture units are used" << std::endl;
@@ -843,7 +780,6 @@ bool Shader::isAvailable()
     static const bool available = []
     {
         const TransientContextLock contextLock;
-        priv::ensureExtensionsInit();
         return priv::getGraphicsBackend().isShaderAvailable();
     }();
 
@@ -857,7 +793,6 @@ bool Shader::isGeometryAvailable()
     static const bool available = []
     {
         const TransientContextLock contextLock;
-        priv::ensureExtensionsInit();
         return priv::getGraphicsBackend().isGeometryShaderAvailable();
     }();
 

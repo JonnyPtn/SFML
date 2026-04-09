@@ -606,6 +606,14 @@ public:
     virtual bool isNonPowerOfTwoTextureSupported() const = 0;
 
     ////////////////////////////////////////////////////////////
+    /// \brief Get the maximum number of texture units available
+    ///
+    /// \return Maximum number of combined texture image units
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual std::size_t getMaxTextureUnits() const = 0;
+
+    ////////////////////////////////////////////////////////////
     // Pipeline operations
     ////////////////////////////////////////////////////////////
 
@@ -638,6 +646,73 @@ public:
     ///
     ////////////////////////////////////////////////////////////
     virtual void bindBuffer(BackendBufferHandle buffer) = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the default framebuffer binding for the current context
+    ///
+    /// On most platforms this is 0, but on iOS it can be non-zero.
+    ///
+    /// \return Default framebuffer identifier
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual unsigned int getDefaultFramebufferBinding() const = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Check if framebuffer objects are supported
+    ///
+    /// \return `true` if FBOs are available
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual bool isFramebufferAvailable() const = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the maximum anti-aliasing level for render textures
+    ///
+    /// \return Maximum anti-aliasing sample count
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual unsigned int getMaxAntiAliasingLevel() const = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Check if sRGB texture encoding is supported
+    ///
+    /// \return `true` if sRGB textures are available
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual bool isSrgbTextureAvailable() const = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Copy vertex buffer data via map/unmap fallback
+    ///
+    /// \param destHandle   Destination buffer handle
+    /// \param srcHandle    Source buffer handle
+    /// \param srcSize      Number of vertices in the source buffer
+    ///
+    /// \return `true` if copy was successful
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual bool copyBufferFallback(BackendBufferHandle destHandle,
+                                    BackendBufferHandle srcHandle,
+                                    std::size_t         srcSize) = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Prepare for setting uniforms on a shader
+    ///
+    /// Binds the shader program for uniform updates. Must be
+    /// paired with finalizeUniformUpdate().
+    ///
+    /// \param handle Shader handle
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual void prepareUniformUpdate(BackendShaderHandle handle) = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Finalize uniform updates on a shader
+    ///
+    /// Restores the previously active shader program.
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual void finalizeUniformUpdate() = 0;
 
 protected:
     ////////////////////////////////////////////////////////////

@@ -26,11 +26,8 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
-#include <SFML/Graphics/GLCheck.hpp>
-#include <SFML/Graphics/GLExtensions.hpp>
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Texture.hpp>
-#include <SFML/Graphics/TextureSaver.hpp>
 
 #include <SFML/Window/Context.hpp>
 #include <SFML/Window/Window.hpp>
@@ -245,8 +242,6 @@ bool Texture::resize(Vector2u size, bool sRgb)
 
     const TransientContextLock lock;
 
-    // Make sure that extensions are initialized
-    priv::ensureExtensionsInit();
 
     // Compute the internal texture dimensions depending on NPOT textures support
     const Vector2u actualSize(getValidSize(size.x), getValidSize(size.y));
@@ -276,18 +271,13 @@ bool Texture::resize(Vector2u size, bool sRgb)
     m_sRgb = sRgb;
 
     // Check sRGB support
-    static const bool textureSrgb = GLEXT_texture_sRGB;
-    if (m_sRgb && !textureSrgb)
+    if (m_sRgb && !backend.isSrgbTextureAvailable())
     {
         static bool warned = false;
         if (!warned)
         {
-#ifndef SFML_OPENGL_ES
-            err() << "OpenGL extension EXT_texture_sRGB unavailable" << '\n';
-#else
-            err() << "OpenGL ES extension EXT_sRGB unavailable" << '\n';
-#endif
-            err() << "Automatic sRGB to linear conversion disabled" << std::endl;
+            err() << "sRGB texture extension unavailable" << '\n'
+                  << "Automatic sRGB to linear conversion disabled" << std::endl;
             warned = true;
         }
         m_sRgb = false;
@@ -376,7 +366,7 @@ bool Texture::loadFromImage(const Image& image, bool sRgb, const IntRect& area)
     if (resize(Vector2u(rectangle.size), sRgb))
     {
         const TransientContextLock lock;
-        const priv::TextureSaver   save;
+
 
         const std::uint8_t* pixels = image.getPixelsPtr() + 4 * (rectangle.position.x + (size.x * rectangle.position.y));
         for (int i = 0; i < rectangle.size.y; ++i)
@@ -411,7 +401,7 @@ Image Texture::copyToImage() const
         return {};
 
     const TransientContextLock lock;
-    const priv::TextureSaver   save;
+
 
     // Read back the full actual-size texture via the backend
     Image image = priv::getGraphicsBackend().readbackTexture(static_cast<priv::BackendTextureHandle>(m_texture), m_actualSize);
@@ -464,7 +454,7 @@ void Texture::update(const std::uint8_t* pixels, Vector2u size, Vector2u dest)
         return;
 
     const TransientContextLock lock;
-    const priv::TextureSaver   save;
+
 
     priv::getGraphicsBackend().updateTexture(static_cast<priv::BackendTextureHandle>(m_texture), pixels, size, dest);
 
@@ -536,7 +526,7 @@ void Texture::update(const Window& window, Vector2u dest)
         return;
 
     const TransientContextLock lock;
-    const priv::TextureSaver   save;
+
 
     priv::getGraphicsBackend().updateTextureFromFramebuffer(
         static_cast<priv::BackendTextureHandle>(m_texture), window.getSize(), dest);
@@ -559,7 +549,7 @@ void Texture::setSmooth(bool smooth)
         return;
 
     const TransientContextLock lock;
-    const priv::TextureSaver   save;
+
 
     priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, m_hasMipmap);
 }
@@ -591,7 +581,7 @@ void Texture::setRepeated(bool repeated)
         return;
 
     const TransientContextLock lock;
-    const priv::TextureSaver   save;
+
 
     priv::getGraphicsBackend().setTextureRepeated(static_cast<priv::BackendTextureHandle>(m_texture), m_isRepeated);
 }
@@ -611,7 +601,7 @@ bool Texture::generateMipmap()
         return false;
 
     const TransientContextLock lock;
-    const priv::TextureSaver   save;
+
 
     if (!priv::getGraphicsBackend().generateMipmap(static_cast<priv::BackendTextureHandle>(m_texture), m_size, m_isSmooth))
         return false;
@@ -628,7 +618,7 @@ void Texture::invalidateMipmap()
         return;
 
     const TransientContextLock lock;
-    const priv::TextureSaver   save;
+
 
     priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, false);
 
@@ -662,7 +652,6 @@ unsigned int Texture::getMaximumSize()
     static const unsigned int size = []
     {
         const TransientContextLock transientLock;
-        priv::ensureExtensionsInit();
         return priv::getGraphicsBackend().getMaxTextureSize();
     }();
 

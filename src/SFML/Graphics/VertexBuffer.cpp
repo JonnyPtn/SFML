@@ -26,8 +26,6 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
-#include <SFML/Graphics/GLCheck.hpp>
-#include <SFML/Graphics/GLExtensions.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Vertex.hpp>
 #include <SFML/Graphics/VertexBuffer.hpp>
@@ -172,9 +170,6 @@ bool VertexBuffer::update(const VertexBuffer& vertexBuffer)
 
     const TransientContextLock contextLock;
 
-    // Make sure that extensions are initialized
-    priv::ensureExtensionsInit();
-
     auto& backend = priv::getGraphicsBackend();
 
     if (backend.copyBuffer(static_cast<priv::BackendBufferHandle>(m_buffer),
@@ -184,36 +179,10 @@ bool VertexBuffer::update(const VertexBuffer& vertexBuffer)
         return true;
     }
 
-    // Fallback: read back source and upload to dest
-    // This path uses direct GL because it requires glMapBuffer which
-    // isn't in the backend interface (it's a legacy GL pattern)
-#ifndef SFML_OPENGL_ES
-    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, m_buffer));
-    glCheck(GLEXT_glBufferData(GLEXT_GL_ARRAY_BUFFER,
-                               static_cast<GLsizeiptrARB>(sizeof(Vertex) * vertexBuffer.m_size),
-                               nullptr,
-                               GLEXT_GL_STREAM_DRAW));
-
-    void* const destination = glCheck(GLEXT_glMapBuffer(GLEXT_GL_ARRAY_BUFFER, GLEXT_GL_WRITE_ONLY));
-
-    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, vertexBuffer.m_buffer));
-
-    const void* const source = glCheck(GLEXT_glMapBuffer(GLEXT_GL_ARRAY_BUFFER, GLEXT_GL_READ_ONLY));
-
-    std::memcpy(destination, source, sizeof(Vertex) * vertexBuffer.m_size);
-
-    const GLboolean sourceResult = glCheck(GLEXT_glUnmapBuffer(GLEXT_GL_ARRAY_BUFFER));
-
-    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, m_buffer));
-
-    const GLboolean destinationResult = glCheck(GLEXT_glUnmapBuffer(GLEXT_GL_ARRAY_BUFFER));
-
-    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, 0));
-
-    return (sourceResult == GL_TRUE) && (destinationResult == GL_TRUE);
-#else
-    return false;
-#endif
+    // Fallback: map source and destination buffers and copy via CPU
+    return backend.copyBufferFallback(static_cast<priv::BackendBufferHandle>(m_buffer),
+                                      static_cast<priv::BackendBufferHandle>(vertexBuffer.m_buffer),
+                                      vertexBuffer.m_size);
 }
 
 
@@ -293,10 +262,7 @@ bool VertexBuffer::isAvailable()
     {
         const TransientContextLock contextLock;
 
-        // Make sure that extensions are initialized
-        priv::ensureExtensionsInit();
-
-        return GLEXT_vertex_buffer_object != 0;
+        return priv::getGraphicsBackend().isVertexBufferAvailable();
     }();
 
     return available;

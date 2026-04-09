@@ -186,15 +186,25 @@ public:
     bool         isGeometryShaderAvailable() const override;
     bool         isVertexBufferAvailable() const override;
     bool         isNonPowerOfTwoTextureSupported() const override;
+    std::size_t  getMaxTextureUnits() const override;
 
     ////////////////////////////////////////////////////////////
     // Pipeline operations
     ////////////////////////////////////////////////////////////
 
-    void flushPipeline() override;
-    void pushGLStates() override;
-    void popGLStates() override;
-    void bindBuffer(BackendBufferHandle buffer) override;
+    void         flushPipeline() override;
+    void         pushGLStates() override;
+    void         popGLStates() override;
+    void         bindBuffer(BackendBufferHandle buffer) override;
+    unsigned int getDefaultFramebufferBinding() const override;
+    bool         isFramebufferAvailable() const override;
+    unsigned int getMaxAntiAliasingLevel() const override;
+    bool         isSrgbTextureAvailable() const override;
+    bool         copyBufferFallback(BackendBufferHandle destHandle,
+                                    BackendBufferHandle srcHandle,
+                                    std::size_t         srcSize) override;
+    void         prepareUniformUpdate(BackendShaderHandle handle) override;
+    void         finalizeUniformUpdate() override;
 
     ////////////////////////////////////////////////////////////
     // OpenGL-specific: Reset internal GL states for first draw
@@ -224,6 +234,9 @@ private:
     ////////////////////////////////////////////////////////////
     std::unordered_map<BackendFramebufferHandle, std::unique_ptr<GLFramebufferData>> m_framebuffers;
     BackendFramebufferHandle m_nextFramebufferHandle{1};
+#ifndef SFML_OPENGL_ES
+    unsigned int             m_savedProgram{};
+#endif
 };
 
 } // namespace sf::priv

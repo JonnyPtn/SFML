@@ -43,6 +43,22 @@
 #include <cassert>
 #include <cstring>
 
+#ifndef SFML_OPENGL_ES
+
+#if defined(SFML_SYSTEM_MACOS) || defined(SFML_SYSTEM_IOS)
+
+#define castToGlHandle(x)   reinterpret_cast<GLEXT_GLhandle>(std::ptrdiff_t{x})
+#define castFromGlHandle(x) static_cast<unsigned int>(reinterpret_cast<std::ptrdiff_t>(x))
+
+#else
+
+#define castToGlHandle(x)   (x)
+#define castFromGlHandle(x) (x)
+
+#endif
+
+#endif // SFML_OPENGL_ES
+
 
 namespace
 {
@@ -168,6 +184,25 @@ std::uint32_t usageToGlConstant(sf::VertexBuffer::Usage usage)
     assert(false);
     return GLEXT_GL_STREAM_DRAW;
 }
+
+// RAII helper to save/restore the current GL_TEXTURE_BINDING_2D
+struct TextureBindingSaver
+{
+    TextureBindingSaver()
+    {
+        glCheck(glGetIntegerv(GL_TEXTURE_BINDING_2D, &binding));
+    }
+
+    ~TextureBindingSaver()
+    {
+        glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(binding)));
+    }
+
+    TextureBindingSaver(const TextureBindingSaver&) = delete;
+    TextureBindingSaver& operator=(const TextureBindingSaver&) = delete;
+
+    GLint binding{};
+};
 
 } // anonymous namespace
 
@@ -424,6 +459,8 @@ void GLBackend::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std:
 
 BackendTextureHandle GLBackend::createTexture(Vector2u size, bool sRgb)
 {
+    const TextureBindingSaver textureSave;
+
     GLuint texture = 0;
     glCheck(glGenTextures(1, &texture));
 
@@ -471,6 +508,7 @@ void GLBackend::updateTexture(BackendTextureHandle handle,
                               Vector2u             dest)
 {
     assert(handle);
+    const TextureBindingSaver textureSave;
     const GLuint texture = static_cast<GLuint>(handle);
 
     glCheck(glBindTexture(GL_TEXTURE_2D, texture));
@@ -496,6 +534,8 @@ void GLBackend::updateTextureFromTexture(BackendTextureHandle handle,
                                          Vector2u             srcSize,
                                          Vector2u             dest)
 {
+    const TextureBindingSaver textureSave;
+
 #ifndef SFML_OPENGL_ES
 
     if (!GLEXT_copy_buffer)
@@ -552,6 +592,7 @@ void GLBackend::updateTextureFromTexture(BackendTextureHandle handle,
 void GLBackend::updateTextureFromFramebuffer(BackendTextureHandle handle, Vector2u size, Vector2u dest)
 {
     assert(handle);
+    const TextureBindingSaver textureSave;
     glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle)));
     glCheck(glCopyTexSubImage2D(GL_TEXTURE_2D,
                                 0,
@@ -635,6 +676,8 @@ Image GLBackend::readbackTexture(BackendTextureHandle handle, Vector2u size)
     if (!handle)
         return image;
 
+    const TextureBindingSaver textureSave;
+
 #ifndef SFML_OPENGL_ES
 
     image.resize(size);
@@ -684,6 +727,7 @@ Image GLBackend::readbackTexture(BackendTextureHandle handle, Vector2u size)
 ////////////////////////////////////////////////////////////
 void GLBackend::setTextureSmooth(BackendTextureHandle handle, bool smooth, bool hasMipmap)
 {
+    const TextureBindingSaver textureSave;
     glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle)));
     glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, smooth ? GL_LINEAR : GL_NEAREST));
 
@@ -703,6 +747,7 @@ void GLBackend::setTextureSmooth(BackendTextureHandle handle, bool smooth, bool 
 ////////////////////////////////////////////////////////////
 void GLBackend::setTextureRepeated(BackendTextureHandle handle, bool repeated)
 {
+    const TextureBindingSaver textureSave;
     glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle)));
     glCheck(
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeated ? GL_REPEAT : GL_CLAMP_TO_EDGE));
@@ -715,6 +760,7 @@ void GLBackend::setTextureRepeated(BackendTextureHandle handle, bool repeated)
 bool GLBackend::generateMipmap(BackendTextureHandle handle, Vector2u size, bool smooth)
 {
     (void)size;
+    const TextureBindingSaver textureSave;
 
     if (!GLEXT_framebuffer_object)
         return false;
@@ -732,6 +778,7 @@ bool GLBackend::generateMipmap(BackendTextureHandle handle, Vector2u size, bool 
 ////////////////////////////////////////////////////////////
 unsigned int GLBackend::getMaxTextureSize() const
 {
+    ensureExtensionsInit();
     static unsigned int maxSize = 0;
 
     if (maxSize == 0)
@@ -1645,7 +1692,11 @@ bool GLBackend::bindFramebuffer(BackendFramebufferHandle handle)
 
     const auto it = m_framebuffers.find(handle);
     if (it == m_framebuffers.end())
-        return false;
+    {
+        // Treat as raw framebuffer ID (e.g., default framebuffer on iOS)
+        glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, static_cast<GLuint>(handle)));
+        return true;
+    }
 
     auto& data = *it->second;
 
@@ -1775,6 +1826,7 @@ void GLBackend::updateFramebufferTexture(BackendFramebufferHandle handle, Backen
 
 bool GLBackend::isShaderAvailable() const
 {
+    ensureExtensionsInit();
 #ifndef SFML_OPENGL_ES
     return GLEXT_multitexture && GLEXT_shading_language_100 && GLEXT_shader_objects && GLEXT_vertex_shader &&
            GLEXT_fragment_shader;
@@ -1787,6 +1839,7 @@ bool GLBackend::isShaderAvailable() const
 ////////////////////////////////////////////////////////////
 bool GLBackend::isGeometryShaderAvailable() const
 {
+    ensureExtensionsInit();
 #ifndef SFML_OPENGL_ES
     return isShaderAvailable() && (GLEXT_geometry_shader4 || GLEXT_GL_VERSION_3_2);
 #else
@@ -1798,6 +1851,7 @@ bool GLBackend::isGeometryShaderAvailable() const
 ////////////////////////////////////////////////////////////
 bool GLBackend::isVertexBufferAvailable() const
 {
+    ensureExtensionsInit();
     return GLEXT_vertex_buffer_object;
 }
 
@@ -1805,7 +1859,25 @@ bool GLBackend::isVertexBufferAvailable() const
 ////////////////////////////////////////////////////////////
 bool GLBackend::isNonPowerOfTwoTextureSupported() const
 {
+    ensureExtensionsInit();
     return GLEXT_texture_non_power_of_two;
+}
+
+
+////////////////////////////////////////////////////////////
+std::size_t GLBackend::getMaxTextureUnits() const
+{
+#ifndef SFML_OPENGL_ES
+    static const GLint maxUnits = []
+    {
+        GLint value = 0;
+        glCheck(glGetIntegerv(GLEXT_GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &value));
+        return value;
+    }();
+    return static_cast<std::size_t>(maxUnits);
+#else
+    return 0;
+#endif
 }
 
 
@@ -1865,6 +1937,113 @@ void GLBackend::popGLStates()
 void GLBackend::bindBuffer(BackendBufferHandle buffer)
 {
     glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, static_cast<unsigned int>(buffer)));
+}
+
+
+////////////////////////////////////////////////////////////
+unsigned int GLBackend::getDefaultFramebufferBinding() const
+{
+    ensureExtensionsInit();
+    GLint binding = 0;
+    glCheck(glGetIntegerv(GLEXT_GL_FRAMEBUFFER_BINDING, &binding));
+    return static_cast<unsigned int>(binding);
+}
+
+
+////////////////////////////////////////////////////////////
+bool GLBackend::isFramebufferAvailable() const
+{
+    ensureExtensionsInit();
+    return GLEXT_framebuffer_object != 0;
+}
+
+
+////////////////////////////////////////////////////////////
+unsigned int GLBackend::getMaxAntiAliasingLevel() const
+{
+#ifdef SFML_OPENGL_ES
+    return 0;
+#else
+    GLint samples = 0;
+    glCheck(glGetIntegerv(GLEXT_GL_MAX_SAMPLES, &samples));
+    return static_cast<unsigned int>(samples);
+#endif
+}
+
+
+////////////////////////////////////////////////////////////
+bool GLBackend::isSrgbTextureAvailable() const
+{
+    ensureExtensionsInit();
+    return GLEXT_texture_sRGB != 0;
+}
+
+
+////////////////////////////////////////////////////////////
+bool GLBackend::copyBufferFallback(BackendBufferHandle destHandle,
+                                   BackendBufferHandle srcHandle,
+                                   std::size_t         srcSize)
+{
+#ifndef SFML_OPENGL_ES
+    const auto dest = static_cast<unsigned int>(destHandle);
+    const auto src  = static_cast<unsigned int>(srcHandle);
+
+    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, dest));
+    glCheck(GLEXT_glBufferData(GLEXT_GL_ARRAY_BUFFER,
+                               static_cast<GLsizeiptrARB>(sizeof(Vertex) * srcSize),
+                               nullptr,
+                               GLEXT_GL_STREAM_DRAW));
+
+    void* const destination = glCheck(GLEXT_glMapBuffer(GLEXT_GL_ARRAY_BUFFER, GLEXT_GL_WRITE_ONLY));
+
+    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, src));
+
+    const void* const source = glCheck(GLEXT_glMapBuffer(GLEXT_GL_ARRAY_BUFFER, GLEXT_GL_READ_ONLY));
+
+    std::memcpy(destination, source, sizeof(Vertex) * srcSize);
+
+    const GLboolean sourceResult = glCheck(GLEXT_glUnmapBuffer(GLEXT_GL_ARRAY_BUFFER));
+
+    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, dest));
+
+    const GLboolean destinationResult = glCheck(GLEXT_glUnmapBuffer(GLEXT_GL_ARRAY_BUFFER));
+
+    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, 0));
+
+    return (sourceResult == GL_TRUE) && (destinationResult == GL_TRUE);
+#else
+    (void)destHandle;
+    (void)srcHandle;
+    (void)srcSize;
+    return false;
+#endif
+}
+
+
+////////////////////////////////////////////////////////////
+void GLBackend::prepareUniformUpdate(BackendShaderHandle handle)
+{
+#ifndef SFML_OPENGL_ES
+    const auto currentProgram = castToGlHandle(static_cast<unsigned int>(handle));
+    if (currentProgram)
+    {
+        m_savedProgram = castFromGlHandle(glCheck(GLEXT_glGetHandle(GLEXT_GL_PROGRAM_OBJECT)));
+        if (currentProgram != castToGlHandle(m_savedProgram))
+            glCheck(GLEXT_glUseProgramObject(currentProgram));
+    }
+#else
+    (void)handle;
+#endif
+}
+
+
+////////////////////////////////////////////////////////////
+void GLBackend::finalizeUniformUpdate()
+{
+#ifndef SFML_OPENGL_ES
+    glCheck(GLEXT_glUseProgramObject(castToGlHandle(m_savedProgram)));
+    m_savedProgram = 0;
+#endif
 }
 
 
