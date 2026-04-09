@@ -83,10 +83,18 @@ set(RENDER_TEXTURE_SRC
 )
 source_group("render texture" FILES ${RENDER_TEXTURE_SRC})
 
+# backend sources
+set(BACKEND_SRC
+    ${SRCROOT}/Backend/GraphicsBackend.hpp
+    ${SRCROOT}/Backend/OpenGL/GLBackend.hpp
+    ${SRCROOT}/Backend/OpenGL/GLBackend.cpp
+)
+source_group("backend" FILES ${BACKEND_SRC})
+
 
 # define the sfml-graphics target
 sfml_add_library(Graphics
-                 SOURCES ${SRC} ${DRAWABLES_SRC} ${RENDER_TEXTURE_SRC}
+                 SOURCES ${SRC} ${DRAWABLES_SRC} ${RENDER_TEXTURE_SRC} ${BACKEND_SRC}
                  DEPENDENCIES "Dependencies.cmake.in")
 
 # setup dependencies
