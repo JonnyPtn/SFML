@@ -279,18 +279,22 @@ void GLBackend::clear(Color color, StencilValue stencilValue)
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::setViewport(const IntRect& viewport)
+void GLBackend::setViewport(const IntRect& viewport, unsigned int targetHeight)
 {
-    glCheck(glViewport(viewport.position.x, viewport.position.y, viewport.size.x, viewport.size.y));
+    // Flip Y from top-left origin to OpenGL's bottom-left origin
+    const int glY = static_cast<int>(targetHeight) - (viewport.position.y + viewport.size.y);
+    glCheck(glViewport(viewport.position.x, glY, viewport.size.x, viewport.size.y));
 }
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::setScissor(const IntRect& scissor, bool enable)
+void GLBackend::setScissor(const IntRect& scissor, bool enable, unsigned int targetHeight)
 {
     if (enable)
     {
-        glCheck(glScissor(scissor.position.x, scissor.position.y, scissor.size.x, scissor.size.y));
+        // Flip Y from top-left origin to OpenGL's bottom-left origin
+        const int glY = static_cast<int>(targetHeight) - (scissor.position.y + scissor.size.y);
+        glCheck(glScissor(scissor.position.x, glY, scissor.size.x, scissor.size.y));
         glCheck(glEnable(GL_SCISSOR_TEST));
     }
     else
@@ -397,19 +401,15 @@ void GLBackend::setColorMask(bool enable)
 // Drawing
 ////////////////////////////////////////////////////////////
 
-void GLBackend::setTexCoordsEnabled(bool enable)
+void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count, bool textured)
 {
-    if (enable)
+    (void)count;
+
+    if (textured)
         glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
     else
         glCheck(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
-}
 
-
-////////////////////////////////////////////////////////////
-void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count)
-{
-    (void)count;
     const auto* data = reinterpret_cast<const std::byte*>(vertices);
 
     glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), data + 0));
@@ -419,8 +419,13 @@ void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count)
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::setupVertexBuffer(BackendBufferHandle buffer)
+void GLBackend::setupVertexBuffer(BackendBufferHandle buffer, bool textured)
 {
+    if (textured)
+        glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+    else
+        glCheck(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
+
     glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, static_cast<unsigned int>(buffer)));
 
     glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void*>(0)));
@@ -459,6 +464,9 @@ void GLBackend::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std:
 
 BackendTextureHandle GLBackend::createTexture(Vector2u size, bool sRgb)
 {
+    // Compute actual GPU size (may pad to power-of-two on old hardware)
+    const Vector2u actualSize(getValidTextureSize(size.x), getValidTextureSize(size.y));
+
     const TextureBindingSaver textureSave;
 
     GLuint texture = 0;
@@ -477,8 +485,8 @@ BackendTextureHandle GLBackend::createTexture(Vector2u size, bool sRgb)
     glCheck(glTexImage2D(GL_TEXTURE_2D,
                          0,
                          static_cast<GLint>(internalFormat),
-                         static_cast<GLsizei>(size.x),
-                         static_cast<GLsizei>(size.y),
+                         static_cast<GLsizei>(actualSize.x),
+                         static_cast<GLsizei>(actualSize.y),
                          0,
                          GL_RGBA,
                          GL_UNSIGNED_BYTE,
@@ -489,7 +497,9 @@ BackendTextureHandle GLBackend::createTexture(Vector2u size, bool sRgb)
     glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
     glCheck(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
 
-    return static_cast<BackendTextureHandle>(texture);
+    const auto handle = static_cast<BackendTextureHandle>(texture);
+    m_textureMetadata[handle] = {size, actualSize, false};
+    return handle;
 }
 
 
@@ -498,6 +508,7 @@ void GLBackend::destroyTexture(BackendTextureHandle handle)
 {
     const GLuint texture = static_cast<GLuint>(handle);
     glCheck(glDeleteTextures(1, &texture));
+    m_textureMetadata.erase(handle);
 }
 
 
@@ -606,18 +617,20 @@ void GLBackend::updateTextureFromFramebuffer(BackendTextureHandle handle, Vector
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::bindTexture(BackendTextureHandle handle,
-                            CoordinateType       coordinateType,
-                            Vector2u             textureSize,
-                            Vector2u             actualSize,
-                            bool                 pixelsFlipped)
+void GLBackend::bindTexture(BackendTextureHandle handle, CoordinateType coordinateType)
 {
     if (handle)
     {
+        // Look up per-texture metadata
+        const auto   it          = m_textureMetadata.find(handle);
+        const Vector2u textureSize = (it != m_textureMetadata.end()) ? it->second.userSize : Vector2u{};
+        const Vector2u actualSize  = (it != m_textureMetadata.end()) ? it->second.actualSize : Vector2u{};
+        const bool   flipped     = (it != m_textureMetadata.end()) && it->second.pixelsFlipped;
+
         glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle)));
 
         // Check if we need a special texture matrix
-        if ((coordinateType == CoordinateType::Pixels) || pixelsFlipped ||
+        if ((coordinateType == CoordinateType::Pixels) || flipped ||
             ((coordinateType == CoordinateType::Normalized) && (textureSize != actualSize)))
         {
             // clang-format off
@@ -642,7 +655,7 @@ void GLBackend::bindTexture(BackendTextureHandle handle,
             }
 
             // Flip Y axis if pixels are flipped
-            if (pixelsFlipped)
+            if (flipped)
             {
                 matrix[5]  = -matrix[5];
                 matrix[13] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
@@ -676,20 +689,57 @@ Image GLBackend::readbackTexture(BackendTextureHandle handle, Vector2u size)
     if (!handle)
         return image;
 
+    // Look up per-texture metadata
+    const auto    it            = m_textureMetadata.find(handle);
+    const bool    pixelsFlipped = (it != m_textureMetadata.end()) && it->second.pixelsFlipped;
+
     const TextureBindingSaver textureSave;
 
 #ifndef SFML_OPENGL_ES
 
-    image.resize(size);
+    const Vector2u actualSize = (it != m_textureMetadata.end()) ? it->second.actualSize : size;
 
-    // Make sure we're not reading from an FBO - save & restore binding
+    // Read the full actual-size texture
+    Image fullImage;
+    fullImage.resize(actualSize);
+
     GLint textureBinding = 0;
     glCheck(glGetIntegerv(GL_TEXTURE_BINDING_2D, &textureBinding));
 
     glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle)));
-    glCheck(glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, const_cast<std::uint8_t*>(image.getPixelsPtr())));
+    glCheck(glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, const_cast<std::uint8_t*>(fullImage.getPixelsPtr())));
 
     glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureBinding)));
+
+    // Crop to user-requested size and/or flip if needed
+    if ((size != actualSize) || pixelsFlipped)
+    {
+        std::vector<std::uint8_t> pixels(size.x * size.y * 4);
+
+        const std::uint8_t* src      = fullImage.getPixelsPtr();
+        std::uint8_t*       dst      = pixels.data();
+        int                 srcPitch = static_cast<int>(actualSize.x * 4);
+        const unsigned int  dstPitch = size.x * 4;
+
+        if (pixelsFlipped)
+        {
+            src += static_cast<unsigned int>(srcPitch * static_cast<int>(size.y - 1));
+            srcPitch = -srcPitch;
+        }
+
+        for (unsigned int i = 0; i < size.y; ++i)
+        {
+            std::memcpy(dst, src, dstPitch);
+            src += srcPitch;
+            dst += dstPitch;
+        }
+
+        image = {size, pixels.data()};
+    }
+    else
+    {
+        image = std::move(fullImage);
+    }
 
 #else
 
@@ -706,6 +756,7 @@ Image GLBackend::readbackTexture(BackendTextureHandle handle, Vector2u size)
                                          static_cast<GLuint>(handle),
                                          0));
 
+    // On ES, glReadPixels reads from the framebuffer, so we can read just the user size
     image.resize(size);
     glCheck(glReadPixels(0,
                          0,
@@ -717,6 +768,25 @@ Image GLBackend::readbackTexture(BackendTextureHandle handle, Vector2u size)
 
     glCheck(GLEXT_glDeleteFramebuffers(1, &frameBuffer));
     glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, static_cast<GLuint>(previousFrameBuffer)));
+
+    // Flip if needed (ES readback is also Y-flipped for FBO textures)
+    if (pixelsFlipped)
+    {
+        std::vector<std::uint8_t> pixels(size.x * size.y * 4);
+
+        const std::uint8_t* src   = image.getPixelsPtr() + (size.y - 1) * size.x * 4;
+        std::uint8_t*       dst   = pixels.data();
+        const unsigned int  pitch = size.x * 4;
+
+        for (unsigned int i = 0; i < size.y; ++i)
+        {
+            std::memcpy(dst, src, pitch);
+            src -= pitch;
+            dst += pitch;
+        }
+
+        image = {size, pixels.data()};
+    }
 
 #endif
 
@@ -793,6 +863,15 @@ unsigned int GLBackend::getMaxTextureSize() const
 
 
 ////////////////////////////////////////////////////////////
+void GLBackend::setTextureFlipped(BackendTextureHandle handle, bool flipped)
+{
+    auto it = m_textureMetadata.find(handle);
+    if (it != m_textureMetadata.end())
+        it->second.pixelsFlipped = flipped;
+}
+
+
+////////////////////////////////////////////////////////////
 unsigned int GLBackend::getValidTextureSize(unsigned int size) const
 {
     if (isNonPowerOfTwoTextureSupported())
@@ -807,6 +886,16 @@ unsigned int GLBackend::getValidTextureSize(unsigned int size) const
         powerOfTwo *= 2;
 
     return powerOfTwo;
+}
+
+
+////////////////////////////////////////////////////////////
+Vector2u GLBackend::getTextureActualSize(BackendTextureHandle handle) const
+{
+    const auto it = m_textureMetadata.find(handle);
+    if (it != m_textureMetadata.end())
+        return it->second.actualSize;
+    return {};
 }
 
 

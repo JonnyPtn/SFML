@@ -29,6 +29,8 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/System/Vector2.hpp>
 
+#include <cstdint>
+
 
 namespace sf
 {
@@ -72,13 +74,13 @@ public:
     /// \brief Create the render texture implementation
     ///
     /// \param size       Width and height of the texture to render to
-    /// \param textureId  OpenGL identifier of the target texture
+    /// \param textureId  Backend handle of the target texture
     /// \param settings   Context settings to create render-texture with
     ///
     /// \return `true` if creation has been successful
     ///
     ////////////////////////////////////////////////////////////
-    virtual bool create(Vector2u size, unsigned int textureId, const ContextSettings& settings) = 0;
+    virtual bool create(Vector2u size, std::uint64_t textureId, const ContextSettings& settings) = 0;
 
     ////////////////////////////////////////////////////////////
     /// \brief Activate or deactivate the render texture for rendering
@@ -104,10 +106,10 @@ public:
     ////////////////////////////////////////////////////////////
     /// \brief Update the pixels of the target texture
     ///
-    /// \param textureId OpenGL identifier of the target texture
+    /// \param textureId Backend handle of the target texture
     ///
     ////////////////////////////////////////////////////////////
-    virtual void updateTexture(unsigned int textureId) = 0;
+    virtual void updateTexture(std::uint64_t textureId) = 0;
 };
 
 } // namespace priv

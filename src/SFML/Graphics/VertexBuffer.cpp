@@ -88,7 +88,7 @@ VertexBuffer::~VertexBuffer()
     if (m_buffer)
     {
         const priv::BackendContextLock contextLock;
-        priv::getGraphicsBackend().destroyBuffer(static_cast<priv::BackendBufferHandle>(m_buffer));
+        priv::getGraphicsBackend().destroyBuffer(m_buffer);
     }
 }
 
@@ -109,12 +109,12 @@ bool VertexBuffer::create(std::size_t vertexCount)
             err() << "Could not create vertex buffer, generation failed" << std::endl;
             return false;
         }
-        m_buffer = static_cast<unsigned int>(handle);
+        m_buffer = handle;
     }
     else
     {
         // Buffer already exists, reallocate
-        priv::getGraphicsBackend().updateBuffer(static_cast<priv::BackendBufferHandle>(m_buffer), nullptr, vertexCount, 0);
+        priv::getGraphicsBackend().updateBuffer(m_buffer, nullptr, vertexCount, 0);
     }
 
     m_size = vertexCount;
@@ -153,15 +153,15 @@ bool VertexBuffer::update(const Vertex* vertices, std::size_t vertexCount, unsig
     if (vertexCount >= m_size)
     {
         // Recreate the buffer with the new size
-        backend.destroyBuffer(static_cast<priv::BackendBufferHandle>(m_buffer));
+        backend.destroyBuffer(m_buffer);
         const auto handle = backend.createBuffer(vertexCount, m_usage);
         if (!handle)
             return false;
-        m_buffer = static_cast<unsigned int>(handle);
+        m_buffer = handle;
         m_size   = vertexCount;
     }
 
-    return backend.updateBuffer(static_cast<priv::BackendBufferHandle>(m_buffer), vertices, vertexCount, offset);
+    return backend.updateBuffer(m_buffer, vertices, vertexCount, offset);
 }
 
 
@@ -175,16 +175,16 @@ bool VertexBuffer::update(const VertexBuffer& vertexBuffer)
 
     auto& backend = priv::getGraphicsBackend();
 
-    if (backend.copyBuffer(static_cast<priv::BackendBufferHandle>(m_buffer),
-                           static_cast<priv::BackendBufferHandle>(vertexBuffer.m_buffer),
+    if (backend.copyBuffer(m_buffer,
+                           vertexBuffer.m_buffer,
                            vertexBuffer.m_size))
     {
         return true;
     }
 
     // Fallback: map source and destination buffers and copy via CPU
-    return backend.copyBufferFallback(static_cast<priv::BackendBufferHandle>(m_buffer),
-                                      static_cast<priv::BackendBufferHandle>(vertexBuffer.m_buffer),
+    return backend.copyBufferFallback(m_buffer,
+                                      vertexBuffer.m_buffer,
                                       vertexBuffer.m_size);
 }
 
@@ -213,7 +213,7 @@ void VertexBuffer::swap(VertexBuffer& right) noexcept
 ////////////////////////////////////////////////////////////
 unsigned int VertexBuffer::getNativeHandle() const
 {
-    return m_buffer;
+    return static_cast<unsigned int>(m_buffer);
 }
 
 

@@ -259,21 +259,16 @@ void RenderTarget::draw(const Vertex* vertices, std::size_t vertexCount, Primiti
 
         setupDraw(useVertexCache, states);
 
-        // Check if texture coordinates array is needed, and update client state accordingly
+        // Check if texture coordinates array is needed
         const bool enableTexCoordsArray = (states.texture || states.shader);
-        if (!m_cache.enable || (enableTexCoordsArray != m_cache.texCoordsArrayEnabled))
-            backend.setTexCoordsEnabled(enableTexCoordsArray);
 
-        // If we switch between non-cache and cache mode or enable texture
-        // coordinates we need to set up the pointers to the vertices' components
-        if (!m_cache.enable || !useVertexCache || !m_cache.useVertexCache)
+        // If we switch between non-cache and cache mode or change texture coord state,
+        // we need to set up the pointers to the vertices' components
+        if (!m_cache.enable || !useVertexCache || !m_cache.useVertexCache ||
+            (enableTexCoordsArray != m_cache.texCoordsArrayEnabled))
         {
             const Vertex* vertexData = useVertexCache ? m_cache.vertexCache.data() : vertices;
-            backend.setupVertexData(vertexData, vertexCount);
-        }
-        else if (enableTexCoordsArray && !m_cache.texCoordsArrayEnabled)
-        {
-            backend.setupVertexData(m_cache.vertexCache.data(), vertexCount);
+            backend.setupVertexData(vertexData, vertexCount, enableTexCoordsArray);
         }
 
         drawPrimitives(type, 0, vertexCount);
@@ -320,12 +315,8 @@ void RenderTarget::draw(const VertexBuffer& vertexBuffer, std::size_t firstVerte
 
         setupDraw(false, states);
 
-        // Always enable texture coordinates
-        if (!m_cache.enable || !m_cache.texCoordsArrayEnabled)
-            backend.setTexCoordsEnabled(true);
-
-        // Bind vertex buffer and set up vertex pointers
-        backend.setupVertexBuffer(static_cast<priv::BackendBufferHandle>(vertexBuffer.getNativeHandle()));
+        // Bind vertex buffer and set up vertex pointers (always enable texture coordinates)
+        backend.setupVertexBuffer(static_cast<priv::BackendBufferHandle>(vertexBuffer.getNativeHandle()), true);
 
         drawPrimitives(vertexBuffer.getPrimitiveType(), firstVertex, vertexCount);
 
@@ -476,34 +467,33 @@ void RenderTarget::initialize()
 void RenderTarget::applyCurrentView()
 {
     auto& backend = priv::getGraphicsBackend();
+    const auto targetHeight = getSize().y;
 
-    // Set the viewport (flip Y for OpenGL's bottom-left origin)
-    const IntRect viewport    = getViewport(m_view);
-    const int     viewportTop = static_cast<int>(getSize().y) - (viewport.position.y + viewport.size.y);
-    backend.setViewport(IntRect({viewport.position.x, viewportTop}, viewport.size));
+    // Set the viewport (top-left origin; backend handles coordinate conversion)
+    const IntRect viewport = getViewport(m_view);
+    backend.setViewport(viewport, targetHeight);
 
     // Set the scissor rectangle and enable/disable scissor testing
     if (m_view.getScissor() == FloatRect({0, 0}, {1, 1}))
     {
         if (!m_cache.enable || m_cache.scissorEnabled)
         {
-            backend.setScissor({}, false);
+            backend.setScissor({}, false, targetHeight);
             m_cache.scissorEnabled = false;
         }
     }
     else
     {
         const IntRect pixelScissor = getScissor(m_view);
-        const int     scissorTop   = static_cast<int>(getSize().y) - (pixelScissor.position.y + pixelScissor.size.y);
 
         if (!m_cache.enable || !m_cache.scissorEnabled)
         {
-            backend.setScissor(IntRect({pixelScissor.position.x, scissorTop}, pixelScissor.size), true);
+            backend.setScissor(pixelScissor, true, targetHeight);
             m_cache.scissorEnabled = true;
         }
         else
         {
-            backend.setScissor(IntRect({pixelScissor.position.x, scissorTop}, pixelScissor.size), true);
+            backend.setScissor(pixelScissor, true, targetHeight);
         }
     }
 

@@ -339,7 +339,7 @@ private:
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    unsigned int  m_buffer{};                             //!< Internal buffer identifier
+    std::uint64_t m_buffer{};                              //!< Backend handle for the vertex buffer
     std::size_t   m_size{};                               //!< Size in Vertices of the currently allocated buffer
     PrimitiveType m_primitiveType{PrimitiveType::Points}; //!< Type of primitives to draw
     Usage         m_usage{Usage::Stream};                 //!< How this vertex buffer is to be used

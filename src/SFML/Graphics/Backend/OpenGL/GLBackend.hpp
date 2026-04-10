@@ -64,8 +64,8 @@ public:
     void clear(Color color) override;
     void clearStencil(StencilValue stencilValue) override;
     void clear(Color color, StencilValue stencilValue) override;
-    void setViewport(const IntRect& viewport) override;
-    void setScissor(const IntRect& scissor, bool enable) override;
+    void setViewport(const IntRect& viewport, unsigned int targetHeight) override;
+    void setScissor(const IntRect& scissor, bool enable, unsigned int targetHeight) override;
     void setSrgb(bool enable) override;
 
     ////////////////////////////////////////////////////////////
@@ -80,9 +80,8 @@ public:
     // Drawing
     ////////////////////////////////////////////////////////////
 
-    void setTexCoordsEnabled(bool enable) override;
-    void setupVertexData(const Vertex* vertices, std::size_t count) override;
-    void setupVertexBuffer(BackendBufferHandle buffer) override;
+    void setupVertexData(const Vertex* vertices, std::size_t count, bool textured) override;
+    void setupVertexBuffer(BackendBufferHandle buffer, bool textured) override;
     void applyTransform(const Transform& projection, const Transform& model) override;
     void drawPrimitives(PrimitiveType type, std::size_t firstVertex, std::size_t vertexCount) override;
 
@@ -101,17 +100,14 @@ public:
                                                   Vector2u             srcSize,
                                                   Vector2u             dest) override;
     void                 updateTextureFromFramebuffer(BackendTextureHandle handle, Vector2u size, Vector2u dest) override;
-    void                 bindTexture(BackendTextureHandle handle,
-                                     CoordinateType       coordinateType,
-                                     Vector2u             textureSize,
-                                     Vector2u             actualSize,
-                                     bool                 pixelsFlipped) override;
+    void                 bindTexture(BackendTextureHandle handle, CoordinateType coordinateType) override;
     Image                readbackTexture(BackendTextureHandle handle, Vector2u size) override;
     void                 setTextureSmooth(BackendTextureHandle handle, bool smooth, bool hasMipmap) override;
     void                 setTextureRepeated(BackendTextureHandle handle, bool repeated) override;
     bool                 generateMipmap(BackendTextureHandle handle, Vector2u size, bool smooth) override;
+    void                 setTextureFlipped(BackendTextureHandle handle, bool flipped) override;
     unsigned int         getMaxTextureSize() const override;
-    unsigned int         getValidTextureSize(unsigned int size) const override;
+    Vector2u             getTextureActualSize(BackendTextureHandle handle) const override;
 
     ////////////////////////////////////////////////////////////
     // Shader operations
@@ -226,8 +222,26 @@ private:
     bool createFBOForContext(GLFramebufferData& data);
 
     ////////////////////////////////////////////////////////////
+    /// \brief Per-texture metadata tracked by the GL backend
+    ///
+    ////////////////////////////////////////////////////////////
+    struct TextureMetadata
+    {
+        Vector2u userSize;
+        Vector2u actualSize;
+        bool     pixelsFlipped{};
+    };
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Compute a valid texture size (power-of-two if needed)
+    ///
+    ////////////////////////////////////////////////////////////
+    unsigned int getValidTextureSize(unsigned int size) const;
+
+    ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
+    std::unordered_map<BackendTextureHandle, TextureMetadata>                        m_textureMetadata;
     std::unordered_map<BackendFramebufferHandle, std::unique_ptr<GLFramebufferData>> m_framebuffers;
     BackendFramebufferHandle m_nextFramebufferHandle{1};
 #ifndef SFML_OPENGL_ES

@@ -151,7 +151,7 @@ struct Shader::UniformBinder
     UniformBinder(Shader& shader, const std::string& name)
     {
         priv::getGraphicsBackend().prepareUniformUpdate(
-            static_cast<priv::BackendShaderHandle>(shader.m_shaderProgram));
+            shader.m_shaderProgram);
 
         location = shader.getUniformLocation(name);
     }
@@ -249,7 +249,7 @@ Shader::~Shader()
     const priv::BackendContextLock lock;
 
     if (m_shaderProgram)
-        priv::getGraphicsBackend().destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
+        priv::getGraphicsBackend().destroyShader(m_shaderProgram);
 }
 
 ////////////////////////////////////////////////////////////
@@ -273,7 +273,7 @@ Shader& Shader::operator=(Shader&& right) noexcept
     if (m_shaderProgram)
     {
         const priv::BackendContextLock lock;
-        priv::getGraphicsBackend().destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
+        priv::getGraphicsBackend().destroyShader(m_shaderProgram);
     }
 
     // Move the contents of right.
@@ -478,7 +478,7 @@ void Shader::setUniform(const std::string& name, float x)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, x);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, x);
 }
 
 
@@ -487,7 +487,7 @@ void Shader::setUniform(const std::string& name, Glsl::Vec2 v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, v);
 }
 
 
@@ -496,7 +496,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Vec3& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, v);
 }
 
 
@@ -505,7 +505,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Vec4& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, v);
 }
 
 
@@ -514,7 +514,7 @@ void Shader::setUniform(const std::string& name, int x)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, x);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, x);
 }
 
 
@@ -523,7 +523,7 @@ void Shader::setUniform(const std::string& name, Glsl::Ivec2 v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, v);
 }
 
 
@@ -532,7 +532,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Ivec3& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, v);
 }
 
 
@@ -541,7 +541,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Ivec4& v)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, v);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, v);
 }
 
 
@@ -578,7 +578,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Mat3& matrix)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, matrix);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, matrix);
 }
 
 
@@ -587,7 +587,7 @@ void Shader::setUniform(const std::string& name, const Glsl::Mat4& matrix)
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniform(static_cast<priv::BackendShaderHandle>(m_shaderProgram), binder.location, matrix);
+        priv::getGraphicsBackend().setUniform(m_shaderProgram, binder.location, matrix);
 }
 
 
@@ -644,7 +644,7 @@ void Shader::setUniformArray(const std::string& name, const float* scalarArray, 
 {
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+        priv::getGraphicsBackend().setUniformArray(m_shaderProgram,
                                                    binder.location,
                                                    scalarArray,
                                                    length);
@@ -658,7 +658,7 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Vec2* vectorAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+        priv::getGraphicsBackend().setUniformArray(m_shaderProgram,
                                                    binder.location,
                                                    reinterpret_cast<const Glsl::Vec2*>(contiguous.data()),
                                                    length);
@@ -672,7 +672,7 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Vec3* vectorAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+        priv::getGraphicsBackend().setUniformArray(m_shaderProgram,
                                                    binder.location,
                                                    reinterpret_cast<const Glsl::Vec3*>(contiguous.data()),
                                                    length);
@@ -686,7 +686,7 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Vec4* vectorAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+        priv::getGraphicsBackend().setUniformArray(m_shaderProgram,
                                                    binder.location,
                                                    reinterpret_cast<const Glsl::Vec4*>(contiguous.data()),
                                                    length);
@@ -704,7 +704,7 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Mat3* matrixAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+        priv::getGraphicsBackend().setUniformArray(m_shaderProgram,
                                                    binder.location,
                                                    reinterpret_cast<const Glsl::Mat3*>(contiguous.data()),
                                                    length);
@@ -722,7 +722,7 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Mat4* matrixAr
 
     const UniformBinder binder(*this, name);
     if (binder.location != -1)
-        priv::getGraphicsBackend().setUniformArray(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+        priv::getGraphicsBackend().setUniformArray(m_shaderProgram,
                                                    binder.location,
                                                    reinterpret_cast<const Glsl::Mat4*>(contiguous.data()),
                                                    length);
@@ -732,7 +732,7 @@ void Shader::setUniformArray(const std::string& name, const Glsl::Mat4* matrixAr
 ////////////////////////////////////////////////////////////
 unsigned int Shader::getNativeHandle() const
 {
-    return m_shaderProgram;
+    return static_cast<unsigned int>(m_shaderProgram);
 }
 
 
@@ -754,14 +754,14 @@ void Shader::bind(const Shader* shader)
     if (shader && shader->m_shaderProgram)
     {
         // Enable the program
-        backend.bindShader(static_cast<priv::BackendShaderHandle>(shader->m_shaderProgram));
+        backend.bindShader(shader->m_shaderProgram);
 
         // Bind the textures
         shader->bindTextures();
 
         // Bind the current texture
         if (shader->m_currentTexture != -1)
-            backend.setUniform(static_cast<priv::BackendShaderHandle>(shader->m_shaderProgram),
+            backend.setUniform(shader->m_shaderProgram,
                                shader->m_currentTexture,
                                0);
     }
@@ -829,14 +829,14 @@ bool Shader::compile(std::string_view vertexShaderCode, std::string_view geometr
 
     // Destroy the old shader if it was already created
     if (m_shaderProgram)
-        backend.destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
+        backend.destroyShader(m_shaderProgram);
 
     // Reset the internal state
     m_currentTexture = -1;
     m_textures.clear();
     m_uniforms.clear();
 
-    m_shaderProgram = static_cast<unsigned int>(handle);
+    m_shaderProgram = handle;
 
     // Force a pipeline flush, so that the shader will appear updated
     // in all contexts immediately (solves problems in multi-threaded apps)
@@ -855,7 +855,7 @@ void Shader::bindTextures() const
     for (std::size_t i = 0; i < m_textures.size(); ++i)
     {
         const auto index = static_cast<int>(i + 1);
-        backend.setUniformTexture(static_cast<priv::BackendShaderHandle>(m_shaderProgram),
+        backend.setUniformTexture(m_shaderProgram,
                                   it->first,
                                   static_cast<priv::BackendTextureHandle>(it->second->getNativeHandle()),
                                   index);
@@ -873,7 +873,7 @@ int Shader::getUniformLocation(const std::string& name)
 
     // Not in cache, request the location from the backend
     const int location = priv::getGraphicsBackend().getUniformLocation(
-        static_cast<priv::BackendShaderHandle>(m_shaderProgram), name);
+        m_shaderProgram, name);
     m_uniforms.try_emplace(name, location);
 
     if (location == -1)

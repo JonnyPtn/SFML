@@ -904,7 +904,7 @@ private:
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    unsigned int m_shaderProgram{};    //!< OpenGL identifier for the program
+    std::uint64_t m_shaderProgram{};   //!< Backend handle for the shader program
     int          m_currentTexture{-1}; //!< Location of the current texture in the shader
     TextureTable m_textures;           //!< Texture variables in the shader, mapped to their location
     UniformTable m_uniforms;           //!< Parameters location cache

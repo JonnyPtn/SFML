@@ -55,7 +55,7 @@ unsigned int RenderTextureImplDefault::getMaximumAntiAliasingLevel()
 
 
 ////////////////////////////////////////////////////////////
-bool RenderTextureImplDefault::create(Vector2u size, unsigned int, const ContextSettings& settings)
+bool RenderTextureImplDefault::create(Vector2u size, std::uint64_t, const ContextSettings& settings)
 {
     // Store the dimensions
     m_size = size;
@@ -82,9 +82,9 @@ bool RenderTextureImplDefault::isSrgb() const
 
 
 ////////////////////////////////////////////////////////////
-void RenderTextureImplDefault::updateTexture(unsigned int textureId)
+void RenderTextureImplDefault::updateTexture(std::uint64_t textureId)
 {
-    getGraphicsBackend().updateTextureFromFramebuffer(static_cast<BackendTextureHandle>(textureId), m_size, {0, 0});
+    getGraphicsBackend().updateTextureFromFramebuffer(textureId, m_size, {0, 0});
 }
 
 } // namespace sf::priv

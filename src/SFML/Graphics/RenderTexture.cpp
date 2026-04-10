@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/RenderTexture.hpp>
 #include <SFML/Graphics/RenderTextureImplDefault.hpp>
 #include <SFML/Graphics/RenderTextureImplFBO.hpp>
@@ -94,8 +95,10 @@ bool RenderTexture::resize(Vector2u size, const ContextSettings& settings)
     }
 
     // Initialize the render texture
-    // We pass the actual size of our texture since OpenGL ES requires that all attachments have identical sizes
-    if (!m_impl->create(m_texture.m_actualSize, m_texture.m_texture, settings))
+    // We pass the actual GPU size since OpenGL ES requires that all attachments have identical sizes
+    const auto actualSize = priv::getGraphicsBackend().getTextureActualSize(
+        m_texture.m_texture);
+    if (!m_impl->create(actualSize, m_texture.m_texture, settings))
         return false;
 
     // We can now initialize the render target part
@@ -184,7 +187,7 @@ void RenderTexture::display()
 
     // Update the target texture
     m_impl->updateTexture(m_texture.m_texture);
-    m_texture.m_pixelsFlipped = true;
+    priv::getGraphicsBackend().setTextureFlipped(m_texture.m_texture, true);
     m_texture.invalidateMipmap();
 }
 

@@ -43,7 +43,6 @@
 #include <utility>
 
 #include <cassert>
-#include <cstring>
 
 
 namespace
@@ -176,13 +175,13 @@ Texture::~Texture()
     if (m_texture)
     {
         const priv::BackendContextLock lock;
-        priv::getGraphicsBackend().destroyTexture(static_cast<priv::BackendTextureHandle>(m_texture));
+        priv::getGraphicsBackend().destroyTexture(m_texture);
     }
 
 #ifndef NDEBUG
     // Set m_texture and m_cacheId to an invalid value to help the assert and glIsTexture in bind detect trying
     // to bind this texture in cases where it has already been destroyed but its memory not yet deallocated
-    m_texture = 0xFFFFFFFFu;
+    m_texture = 0xFFFFFFFFFFFFFFFFull;
     m_cacheId = 0xFFFFFFFFFFFFFFFFull;
 #endif
 }
@@ -190,12 +189,10 @@ Texture::~Texture()
 ////////////////////////////////////////////////////////////
 Texture::Texture(Texture&& right) noexcept :
     m_size(std::exchange(right.m_size, {})),
-    m_actualSize(std::exchange(right.m_actualSize, {})),
     m_texture(std::exchange(right.m_texture, 0)),
     m_isSmooth(std::exchange(right.m_isSmooth, false)),
     m_sRgb(std::exchange(right.m_sRgb, false)),
     m_isRepeated(std::exchange(right.m_isRepeated, false)),
-    m_pixelsFlipped(std::exchange(right.m_pixelsFlipped, false)),
     m_fboAttachment(std::exchange(right.m_fboAttachment, false)),
     m_hasMipmap(std::exchange(right.m_hasMipmap, false)),
     m_cacheId(std::exchange(right.m_cacheId, 0))
@@ -215,17 +212,15 @@ Texture& Texture::operator=(Texture&& right) noexcept
     if (m_texture)
     {
         const priv::BackendContextLock lock;
-        priv::getGraphicsBackend().destroyTexture(static_cast<priv::BackendTextureHandle>(m_texture));
+        priv::getGraphicsBackend().destroyTexture(m_texture);
     }
 
     // Move old to new.
     m_size          = std::exchange(right.m_size, {});
-    m_actualSize    = std::exchange(right.m_actualSize, {});
     m_texture       = std::exchange(right.m_texture, 0);
     m_isSmooth      = std::exchange(right.m_isSmooth, false);
     m_sRgb          = std::exchange(right.m_sRgb, false);
     m_isRepeated    = std::exchange(right.m_isRepeated, false);
-    m_pixelsFlipped = std::exchange(right.m_pixelsFlipped, false);
     m_fboAttachment = std::exchange(right.m_fboAttachment, false);
     m_hasMipmap     = std::exchange(right.m_hasMipmap, false);
     m_cacheId       = std::exchange(right.m_cacheId, 0);
@@ -246,30 +241,25 @@ bool Texture::resize(Vector2u size, bool sRgb)
     const priv::BackendContextLock lock;
 
 
-    // Compute the internal texture dimensions depending on NPOT textures support
-    const Vector2u actualSize(getValidSize(size.x), getValidSize(size.y));
-
     // Check the maximum texture size
     const unsigned int maxSize = getMaximumSize();
-    if ((actualSize.x > maxSize) || (actualSize.y > maxSize))
+    if ((size.x > maxSize) || (size.y > maxSize))
     {
-        err() << "Failed to create texture, its internal size is too high "
-              << "(" << actualSize.x << "x" << actualSize.y << ", "
+        err() << "Failed to create texture, its size is too high "
+              << "(" << size.x << "x" << size.y << ", "
               << "maximum is " << maxSize << "x" << maxSize << ")" << std::endl;
         return false;
     }
 
     // All the validity checks passed, we can store the new texture settings
     m_size          = size;
-    m_actualSize    = actualSize;
-    m_pixelsFlipped = false;
     m_fboAttachment = false;
 
     auto& backend = priv::getGraphicsBackend();
 
     // Destroy old texture if it exists, then create a new one
     if (m_texture)
-        backend.destroyTexture(static_cast<priv::BackendTextureHandle>(m_texture));
+        backend.destroyTexture(m_texture);
 
     m_sRgb = sRgb;
 
@@ -286,7 +276,7 @@ bool Texture::resize(Vector2u size, bool sRgb)
         m_sRgb = false;
     }
 
-    const auto handle = backend.createTexture(m_actualSize, m_sRgb);
+    const auto handle = backend.createTexture(m_size, m_sRgb);
     if (!handle)
     {
         err() << "Failed to create texture" << std::endl;
@@ -294,7 +284,7 @@ bool Texture::resize(Vector2u size, bool sRgb)
         return false;
     }
 
-    m_texture = static_cast<unsigned int>(handle);
+    m_texture = handle;
 
     // Apply current smooth and repeat settings
     backend.setTextureSmooth(handle, m_isSmooth, false);
@@ -374,7 +364,7 @@ bool Texture::loadFromImage(const Image& image, bool sRgb, const IntRect& area)
         const std::uint8_t* pixels = image.getPixelsPtr() + 4 * (rectangle.position.x + (size.x * rectangle.position.y));
         for (int i = 0; i < rectangle.size.y; ++i)
         {
-            priv::getGraphicsBackend().updateTexture(static_cast<priv::BackendTextureHandle>(m_texture),
+            priv::getGraphicsBackend().updateTexture(m_texture,
                                                      pixels,
                                                      Vector2u(Vector2i(rectangle.size.x, 1)),
                                                      Vector2u(Vector2i(0, i)));
@@ -406,36 +396,8 @@ Image Texture::copyToImage() const
     const priv::BackendContextLock lock;
 
 
-    // Read back the full actual-size texture via the backend
-    Image image = priv::getGraphicsBackend().readbackTexture(static_cast<priv::BackendTextureHandle>(m_texture), m_actualSize);
-
-    // If the texture is padded or flipped, extract the visible region
-    if ((m_size != m_actualSize) || m_pixelsFlipped)
-    {
-        std::vector<std::uint8_t> pixels(m_size.x * m_size.y * 4);
-
-        const std::uint8_t* src      = image.getPixelsPtr();
-        std::uint8_t*       dst      = pixels.data();
-        int                 srcPitch = static_cast<int>(m_actualSize.x * 4);
-        const unsigned int  dstPitch = m_size.x * 4;
-
-        if (m_pixelsFlipped)
-        {
-            src += static_cast<unsigned int>(srcPitch * static_cast<int>(m_size.y - 1));
-            srcPitch = -srcPitch;
-        }
-
-        for (unsigned int i = 0; i < m_size.y; ++i)
-        {
-            std::memcpy(dst, src, dstPitch);
-            src += srcPitch;
-            dst += dstPitch;
-        }
-
-        return {m_size, pixels.data()};
-    }
-
-    return image;
+    // Read back the texture via the backend (handles NPOT cropping and Y-flip internally)
+    return priv::getGraphicsBackend().readbackTexture(m_texture, m_size);
 }
 
 
@@ -459,11 +421,13 @@ void Texture::update(const std::uint8_t* pixels, Vector2u size, Vector2u dest)
     const priv::BackendContextLock lock;
 
 
-    priv::getGraphicsBackend().updateTexture(static_cast<priv::BackendTextureHandle>(m_texture), pixels, size, dest);
+    auto& backend = priv::getGraphicsBackend();
+    const auto handle = m_texture;
+    backend.updateTexture(handle, pixels, size, dest);
 
-    m_hasMipmap     = false;
-    m_pixelsFlipped = false;
-    m_cacheId       = TextureImpl::getUniqueId();
+    m_hasMipmap = false;
+    backend.setTextureFlipped(handle, false);
+    m_cacheId = TextureImpl::getUniqueId();
 }
 
 
@@ -486,14 +450,16 @@ void Texture::update(const Texture& texture, Vector2u dest)
 
     const priv::BackendContextLock lock;
 
-    priv::getGraphicsBackend().updateTextureFromTexture(static_cast<priv::BackendTextureHandle>(m_texture),
-                                                        static_cast<priv::BackendTextureHandle>(texture.m_texture),
-                                                        texture.m_size,
-                                                        dest);
+    auto& backend = priv::getGraphicsBackend();
+    const auto handle = m_texture;
+    backend.updateTextureFromTexture(handle,
+                                     texture.m_texture,
+                                     texture.m_size,
+                                     dest);
 
-    m_hasMipmap     = false;
-    m_pixelsFlipped = false;
-    m_cacheId       = TextureImpl::getUniqueId();
+    m_hasMipmap = false;
+    backend.setTextureFlipped(handle, false);
+    m_cacheId = TextureImpl::getUniqueId();
 }
 
 
@@ -531,12 +497,13 @@ void Texture::update(const Window& window, Vector2u dest)
     const priv::BackendContextLock lock;
 
 
-    priv::getGraphicsBackend().updateTextureFromFramebuffer(
-        static_cast<priv::BackendTextureHandle>(m_texture), window.getSize(), dest);
+    auto& backend = priv::getGraphicsBackend();
+    const auto handle = m_texture;
+    backend.updateTextureFromFramebuffer(handle, window.getSize(), dest);
 
-    m_hasMipmap     = false;
-    m_pixelsFlipped = true;
-    m_cacheId       = TextureImpl::getUniqueId();
+    m_hasMipmap = false;
+    backend.setTextureFlipped(handle, true);
+    m_cacheId = TextureImpl::getUniqueId();
 }
 
 
@@ -554,7 +521,7 @@ void Texture::setSmooth(bool smooth)
     const priv::BackendContextLock lock;
 
 
-    priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, m_hasMipmap);
+    priv::getGraphicsBackend().setTextureSmooth(m_texture, m_isSmooth, m_hasMipmap);
 }
 
 
@@ -586,7 +553,7 @@ void Texture::setRepeated(bool repeated)
     const priv::BackendContextLock lock;
 
 
-    priv::getGraphicsBackend().setTextureRepeated(static_cast<priv::BackendTextureHandle>(m_texture), m_isRepeated);
+    priv::getGraphicsBackend().setTextureRepeated(m_texture, m_isRepeated);
 }
 
 
@@ -606,7 +573,7 @@ bool Texture::generateMipmap()
     const priv::BackendContextLock lock;
 
 
-    if (!priv::getGraphicsBackend().generateMipmap(static_cast<priv::BackendTextureHandle>(m_texture), m_size, m_isSmooth))
+    if (!priv::getGraphicsBackend().generateMipmap(m_texture, m_size, m_isSmooth))
         return false;
 
     m_hasMipmap = true;
@@ -623,7 +590,7 @@ void Texture::invalidateMipmap()
     const priv::BackendContextLock lock;
 
 
-    priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, false);
+    priv::getGraphicsBackend().setTextureSmooth(m_texture, m_isSmooth, false);
 
     m_hasMipmap = false;
 }
@@ -634,18 +601,12 @@ void Texture::bind(const Texture* texture, CoordinateType coordinateType)
 {
     const priv::BackendContextLock lock;
 
+    auto& backend = priv::getGraphicsBackend();
+
     if (texture && texture->m_texture)
-    {
-        priv::getGraphicsBackend().bindTexture(static_cast<priv::BackendTextureHandle>(texture->m_texture),
-                                               coordinateType,
-                                               texture->m_size,
-                                               texture->m_actualSize,
-                                               texture->m_pixelsFlipped);
-    }
+        backend.bindTexture(texture->m_texture, coordinateType);
     else
-    {
-        priv::getGraphicsBackend().bindTexture(0, coordinateType, {}, {}, false);
-    }
+        backend.bindTexture(0, coordinateType);
 }
 
 
@@ -677,12 +638,10 @@ Texture& Texture::operator=(const Texture& right)
 void Texture::swap(Texture& right) noexcept
 {
     std::swap(m_size, right.m_size);
-    std::swap(m_actualSize, right.m_actualSize);
     std::swap(m_texture, right.m_texture);
     std::swap(m_isSmooth, right.m_isSmooth);
     std::swap(m_sRgb, right.m_sRgb);
     std::swap(m_isRepeated, right.m_isRepeated);
-    std::swap(m_pixelsFlipped, right.m_pixelsFlipped);
     std::swap(m_fboAttachment, right.m_fboAttachment);
     std::swap(m_hasMipmap, right.m_hasMipmap);
     std::swap(m_cacheId, right.m_cacheId);
@@ -692,14 +651,7 @@ void Texture::swap(Texture& right) noexcept
 ////////////////////////////////////////////////////////////
 unsigned int Texture::getNativeHandle() const
 {
-    return m_texture;
-}
-
-
-////////////////////////////////////////////////////////////
-unsigned int Texture::getValidSize(unsigned int size)
-{
-    return priv::getGraphicsBackend().getValidTextureSize(size);
+    return static_cast<unsigned int>(m_texture);
 }
 
 

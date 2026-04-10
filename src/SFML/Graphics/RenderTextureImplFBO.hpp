@@ -100,7 +100,7 @@ private:
     /// \return `true` if creation has been successful
     ///
     ////////////////////////////////////////////////////////////
-    bool create(Vector2u size, unsigned int textureId, const ContextSettings& settings) override;
+    bool create(Vector2u size, std::uint64_t textureId, const ContextSettings& settings) override;
 
     ////////////////////////////////////////////////////////////
     /// \brief Activate or deactivate the render texture for rendering
@@ -129,7 +129,7 @@ private:
     /// \param textureId OpenGL identifier of the target texture
     ///
     ////////////////////////////////////////////////////////////
-    void updateTexture(unsigned textureId) override;
+    void updateTexture(std::uint64_t textureId) override;
 
     ////////////////////////////////////////////////////////////
     // Member data

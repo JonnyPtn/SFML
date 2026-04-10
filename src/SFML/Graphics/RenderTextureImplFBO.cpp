@@ -77,13 +77,11 @@ void RenderTextureImplFBO::unbind()
 
 
 ////////////////////////////////////////////////////////////
-bool RenderTextureImplFBO::create(Vector2u size, unsigned int textureId, const ContextSettings& settings)
+bool RenderTextureImplFBO::create(Vector2u size, std::uint64_t textureId, const ContextSettings& settings)
 {
     const BackendContextLock lock;
 
-    m_framebufferHandle = getGraphicsBackend().createFramebuffer(size,
-                                                                 static_cast<BackendTextureHandle>(textureId),
-                                                                 settings);
+    m_framebufferHandle = getGraphicsBackend().createFramebuffer(size, textureId, settings);
 
     return m_framebufferHandle != 0;
 }
@@ -132,10 +130,9 @@ bool RenderTextureImplFBO::isSrgb() const
 
 
 ////////////////////////////////////////////////////////////
-void RenderTextureImplFBO::updateTexture(unsigned int textureId)
+void RenderTextureImplFBO::updateTexture(std::uint64_t textureId)
 {
-    getGraphicsBackend().updateFramebufferTexture(m_framebufferHandle,
-                                                  static_cast<BackendTextureHandle>(textureId));
+    getGraphicsBackend().updateFramebufferTexture(m_framebufferHandle, textureId);
 }
 
 } // namespace sf::priv

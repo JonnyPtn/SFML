@@ -722,21 +722,6 @@ private:
     friend class RenderTarget;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get a valid image size according to hardware support
-    ///
-    /// This function checks whether the graphics driver supports
-    /// non power of two sizes or not, and adjusts the size
-    /// accordingly.
-    /// The returned size is greater than or equal to the original size.
-    ///
-    /// \param size size to convert
-    ///
-    /// \return Valid nearest size (greater than or equal to specified size)
-    ///
-    ////////////////////////////////////////////////////////////
-    [[nodiscard]] static unsigned int getValidSize(unsigned int size);
-
-    ////////////////////////////////////////////////////////////
     /// \brief Invalidate the mipmap if one exists
     ///
     /// This also resets the texture's minifying function.
@@ -749,12 +734,10 @@ private:
     // Member data
     ////////////////////////////////////////////////////////////
     Vector2u      m_size;            //!< Public texture size
-    Vector2u      m_actualSize;      //!< Actual texture size (can be greater than public size because of padding)
-    unsigned int  m_texture{};       //!< Internal texture identifier
+    std::uint64_t m_texture{};       //!< Internal texture identifier (backend handle)
     bool          m_isSmooth{};      //!< Status of the smooth filter
     bool          m_sRgb{};          //!< Should the texture source be converted from sRGB?
     bool          m_isRepeated{};    //!< Is the texture in repeat mode?
-    mutable bool  m_pixelsFlipped{}; //!< To work around the inconsistency in Y orientation
     bool          m_fboAttachment{}; //!< Is this texture owned by a framebuffer object?
     bool          m_hasMipmap{};     //!< Has the mipmap been generated?
     std::uint64_t m_cacheId;         //!< Unique number that identifies the texture to the render target's cache

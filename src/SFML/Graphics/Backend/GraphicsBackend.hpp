@@ -133,19 +133,27 @@ public:
     ////////////////////////////////////////////////////////////
     /// \brief Set the viewport rectangle
     ///
-    /// \param viewport Viewport in pixels
+    /// Coordinates use top-left origin. The backend applies any
+    /// coordinate system conversion internally (e.g. Y-flip for OpenGL).
+    ///
+    /// \param viewport     Viewport in pixels (top-left origin)
+    /// \param targetHeight Height of the render target in pixels
     ///
     ////////////////////////////////////////////////////////////
-    virtual void setViewport(const IntRect& viewport) = 0;
+    virtual void setViewport(const IntRect& viewport, unsigned int targetHeight) = 0;
 
     ////////////////////////////////////////////////////////////
     /// \brief Set or disable the scissor rectangle
     ///
-    /// \param scissor Scissor rectangle in pixels
-    /// \param enable  Whether scissor testing is enabled
+    /// Coordinates use top-left origin. The backend applies any
+    /// coordinate system conversion internally (e.g. Y-flip for OpenGL).
+    ///
+    /// \param scissor      Scissor rectangle in pixels (top-left origin)
+    /// \param enable       Whether scissor testing is enabled
+    /// \param targetHeight Height of the render target in pixels
     ///
     ////////////////////////////////////////////////////////////
-    virtual void setScissor(const IntRect& scissor, bool enable) = 0;
+    virtual void setScissor(const IntRect& scissor, bool enable, unsigned int targetHeight) = 0;
 
     ////////////////////////////////////////////////////////////
     /// \brief Enable or disable sRGB framebuffer conversion
@@ -188,29 +196,23 @@ public:
     ////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////
-    /// \brief Enable or disable texture coordinate arrays
-    ///
-    /// \param enable `true` to enable, `false` to disable
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void setTexCoordsEnabled(bool enable) = 0;
-
-    ////////////////////////////////////////////////////////////
     /// \brief Upload vertex data from CPU memory for subsequent drawing
     ///
     /// \param vertices Pointer to vertex array
     /// \param count    Number of vertices
+    /// \param textured Whether texture coordinates should be enabled
     ///
     ////////////////////////////////////////////////////////////
-    virtual void setupVertexData(const Vertex* vertices, std::size_t count) = 0;
+    virtual void setupVertexData(const Vertex* vertices, std::size_t count, bool textured) = 0;
 
     ////////////////////////////////////////////////////////////
     /// \brief Bind a vertex buffer for subsequent drawing
     ///
-    /// \param buffer Backend handle of the vertex buffer
+    /// \param buffer   Backend handle of the vertex buffer
+    /// \param textured Whether texture coordinates should be enabled
     ///
     ////////////////////////////////////////////////////////////
-    virtual void setupVertexBuffer(BackendBufferHandle buffer) = 0;
+    virtual void setupVertexBuffer(BackendBufferHandle buffer, bool textured) = 0;
 
     ////////////////////////////////////////////////////////////
     /// \brief Set the projection and model-view transforms
@@ -297,16 +299,9 @@ public:
     ///
     /// \param handle         Texture handle (0 to unbind)
     /// \param coordinateType Texture coordinate interpretation
-    /// \param textureSize    Public size of the texture
-    /// \param actualSize     Actual (padded) size of the texture
-    /// \param pixelsFlipped  Whether the texture pixels are Y-flipped
     ///
     ////////////////////////////////////////////////////////////
-    virtual void bindTexture(BackendTextureHandle handle,
-                             CoordinateType       coordinateType,
-                             Vector2u             textureSize,
-                             Vector2u             actualSize,
-                             bool                 pixelsFlipped) = 0;
+    virtual void bindTexture(BackendTextureHandle handle, CoordinateType coordinateType) = 0;
 
     ////////////////////////////////////////////////////////////
     /// \brief Read back texture pixels into an Image
@@ -359,14 +354,29 @@ public:
     virtual unsigned int getMaxTextureSize() const = 0;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get a valid texture size (e.g. power-of-two padding)
+    /// \brief Mark a texture as having Y-flipped content
     ///
-    /// \param size Desired size
+    /// Called after a texture is updated from a framebuffer,
+    /// which may store pixels upside-down on some backends.
     ///
-    /// \return Valid size (>= input)
+    /// \param handle  Texture handle
+    /// \param flipped `true` if the texture content is Y-flipped
     ///
     ////////////////////////////////////////////////////////////
-    virtual unsigned int getValidTextureSize(unsigned int size) const = 0;
+    virtual void setTextureFlipped(BackendTextureHandle handle, bool flipped) = 0;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the actual GPU size of a texture
+    ///
+    /// The actual size may differ from the user-requested size
+    /// (e.g. due to power-of-two padding on older hardware).
+    ///
+    /// \param handle Texture handle
+    ///
+    /// \return Actual GPU texture size
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual Vector2u getTextureActualSize(BackendTextureHandle handle) const = 0;
 
     ////////////////////////////////////////////////////////////
     // Shader operations
