@@ -33,11 +33,15 @@
 
 #include <SFML/Window/ContextSettings.hpp>
 #include <SFML/Window/VideoMode.hpp>
-#include <SFML/Window/Window.hpp>
+#include <SFML/Window/WindowBase.hpp>
 #include <SFML/Window/WindowEnums.hpp>
 #include <SFML/Window/WindowHandle.hpp>
 
+#include <SFML/System/Clock.hpp>
+#include <SFML/System/Time.hpp>
 #include <SFML/System/Vector2.hpp>
+
+#include <memory>
 
 #include <cstdint>
 
@@ -51,7 +55,7 @@ class String;
 /// \brief Window that can serve as a target for 2D drawing
 ///
 ////////////////////////////////////////////////////////////
-class SFML_GRAPHICS_API RenderWindow : public Window, public RenderTarget
+class SFML_GRAPHICS_API RenderWindow : public WindowBase, public RenderTarget
 {
 public:
     ////////////////////////////////////////////////////////////
@@ -61,26 +65,46 @@ public:
     /// use the other constructors or call `create()` to do so.
     ///
     ////////////////////////////////////////////////////////////
-    RenderWindow() = default;
+    RenderWindow();
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Destructor
+    ///
+    ////////////////////////////////////////////////////////////
+    ~RenderWindow() override;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Deleted copy constructor
+    ///
+    ////////////////////////////////////////////////////////////
+    RenderWindow(const RenderWindow&) = delete;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Deleted copy assignment
+    ///
+    ////////////////////////////////////////////////////////////
+    RenderWindow& operator=(const RenderWindow&) = delete;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Move constructor
+    ///
+    ////////////////////////////////////////////////////////////
+    RenderWindow(RenderWindow&&) noexcept;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Move assignment operator
+    ///
+    ////////////////////////////////////////////////////////////
+    RenderWindow& operator=(RenderWindow&&) noexcept;
 
     ////////////////////////////////////////////////////////////
     /// \brief Construct a new window
     ///
-    /// This constructor creates the window with the size and pixel
-    /// depth defined in `mode`. An optional style can be passed to
-    /// customize the look and behavior of the window (borders,
-    /// title bar, resizable, closable, ...).
-    ///
-    /// The last parameter is an optional structure specifying
-    /// advanced OpenGL context settings such as anti-aliasing,
-    /// depth-buffer bits, etc. You shouldn't care about these
-    /// parameters for a regular usage of the graphics module.
-    ///
-    /// \param mode     Video mode to use (defines the width, height and depth of the rendering area of the window)
+    /// \param mode     Video mode to use
     /// \param title    Title of the window
-    /// \param style    %Window style, a bitwise OR combination of `sf::Style` enumerators
+    /// \param style    %Window style
     /// \param state    %Window state
-    /// \param settings Additional settings for the underlying OpenGL context
+    /// \param settings Additional settings for the rendering context
     ///
     ////////////////////////////////////////////////////////////
     RenderWindow(VideoMode              mode,
@@ -92,18 +116,10 @@ public:
     ////////////////////////////////////////////////////////////
     /// \brief Construct a new window
     ///
-    /// This constructor creates the window with the size and pixel
-    /// depth defined in `mode`. If `state` is `State::Fullscreen`,
-    /// then `mode` must be a valid video mode.
-    ///
-    /// The last parameter is an optional structure specifying
-    /// advanced OpenGL context settings such as anti-aliasing,
-    /// depth-buffer bits, etc.
-    ///
-    /// \param mode     Video mode to use (defines the width, height and depth of the rendering area of the window)
+    /// \param mode     Video mode to use
     /// \param title    Title of the window
     /// \param state    %Window state
-    /// \param settings Additional settings for the underlying OpenGL context
+    /// \param settings Additional settings for the rendering context
     ///
     ////////////////////////////////////////////////////////////
     RenderWindow(VideoMode mode, const String& title, State state, const ContextSettings& settings = {});
@@ -111,26 +127,103 @@ public:
     ////////////////////////////////////////////////////////////
     /// \brief Construct the window from an existing control
     ///
-    /// Use this constructor if you want to create an SFML
-    /// rendering area into an already existing control.
-    ///
-    /// The second parameter is an optional structure specifying
-    /// advanced OpenGL context settings such as anti-aliasing,
-    /// depth-buffer bits, etc. You shouldn't care about these
-    /// parameters for a regular usage of the graphics module.
-    ///
-    /// \param handle   Platform-specific handle of the control (\a HWND on
-    ///                 Windows, \a %Window on Linux/FreeBSD, \a NSWindow on macOS)
-    /// \param settings Additional settings for the underlying OpenGL context
+    /// \param handle   Platform-specific handle of the control
+    /// \param settings Additional settings for the rendering context
     ///
     ////////////////////////////////////////////////////////////
     explicit RenderWindow(WindowHandle handle, const ContextSettings& settings = {});
 
     ////////////////////////////////////////////////////////////
-    /// \brief Get the size of the rendering region of the window
+    /// \brief Create (or recreate) the window
     ///
-    /// The size doesn't include the titlebar and borders
-    /// of the window.
+    /// \param mode     Video mode to use
+    /// \param title    Title of the window
+    /// \param style    %Window style
+    /// \param state    %Window state
+    /// \param settings Additional settings for the rendering context
+    ///
+    ////////////////////////////////////////////////////////////
+    void create(VideoMode mode, const String& title, std::uint32_t style, State state, const ContextSettings& settings);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Create (or recreate) the window
+    ///
+    ////////////////////////////////////////////////////////////
+    void create(VideoMode mode, const String& title, std::uint32_t style = Style::Default, State state = State::Windowed) override;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Create (or recreate) the window
+    ///
+    ////////////////////////////////////////////////////////////
+    void create(VideoMode mode, const String& title, State state) override;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Create (or recreate) the window from an existing control
+    ///
+    ////////////////////////////////////////////////////////////
+    void create(WindowHandle handle) override;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Create (or recreate) the window from an existing control
+    ///
+    /// \param handle   Platform-specific handle of the control
+    /// \param settings Additional settings for the rendering context
+    ///
+    ////////////////////////////////////////////////////////////
+    void create(WindowHandle handle, const ContextSettings& settings);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Close the window and destroy all attached resources
+    ///
+    ////////////////////////////////////////////////////////////
+    void close() override;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the settings of the rendering context
+    ///
+    /// \return Structure containing the context settings
+    ///
+    ////////////////////////////////////////////////////////////
+    [[nodiscard]] const ContextSettings& getSettings() const;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Enable or disable vertical synchronization
+    ///
+    /// \param enabled `true` to enable v-sync, `false` to deactivate it
+    ///
+    ////////////////////////////////////////////////////////////
+    void setVerticalSyncEnabled(bool enabled);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Limit the framerate to a maximum fixed frequency
+    ///
+    /// \param limit Framerate limit, in frames per seconds (use 0 to disable limit)
+    ///
+    ////////////////////////////////////////////////////////////
+    void setFramerateLimit(unsigned int limit);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Activate or deactivate the window as the current
+    ///        target for rendering
+    ///
+    /// \param active `true` to activate, `false` to deactivate
+    ///
+    /// \return `true` if operation was successful, `false` otherwise
+    ///
+    ////////////////////////////////////////////////////////////
+    [[nodiscard]] bool setActive(bool active = true) override;
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Display on screen what has been rendered so far
+    ///
+    /// This function swaps the back and front buffers after
+    /// rendering has been done for the current frame.
+    ///
+    ////////////////////////////////////////////////////////////
+    void display();
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get the size of the rendering region of the window
     ///
     /// \return Size in pixels
     ///
@@ -140,60 +233,29 @@ public:
     ////////////////////////////////////////////////////////////
     /// \brief Change the window's icon
     ///
-    /// The OS default icon is used by default.
-    ///
-    /// \param icon Image to use as the icon. The image is copied,
-    ///             so you need not keep the source alive after
-    ///             calling this function.
+    /// \param icon Image to use as the icon
     ///
     ////////////////////////////////////////////////////////////
     void setIcon(const Image& icon);
-    using Window::setIcon;
+    using WindowBase::setIcon;
 
     ////////////////////////////////////////////////////////////
     /// \brief Tell if the window will use sRGB encoding when drawing on it
     ///
-    /// You can request sRGB encoding for a window by having the sRgbCapable flag set in the `ContextSettings`
-    ///
-    /// \return `true` if the window use sRGB encoding, `false` otherwise
+    /// \return `true` if the window uses sRGB encoding, `false` otherwise
     ///
     ////////////////////////////////////////////////////////////
     [[nodiscard]] bool isSrgb() const override;
 
-    ////////////////////////////////////////////////////////////
-    /// \brief Activate or deactivate the window as the current target
-    ///        for OpenGL rendering
-    ///
-    /// A window is active only on the current thread, if you want to
-    /// make it active on another thread you have to deactivate it
-    /// on the previous thread first if it was active.
-    /// Only one window can be active on a thread at a time, thus
-    /// the window previously active (if any) automatically gets deactivated.
-    /// This is not to be confused with `requestFocus()`.
-    ///
-    /// \param active `true` to activate, `false` to deactivate
-    ///
-    /// \return `true` if operation was successful, `false` otherwise
-    ///
-    ////////////////////////////////////////////////////////////
-    [[nodiscard]] bool setActive(bool active = true) override;
-
 protected:
     ////////////////////////////////////////////////////////////
     /// \brief Function called after the window has been created
-    ///
-    /// This function is called so that derived classes can
-    /// perform their own specific initialization as soon as
-    /// the window is created.
     ///
     ////////////////////////////////////////////////////////////
     void onCreate() override;
 
     ////////////////////////////////////////////////////////////
     /// \brief Function called after the window has been resized
-    ///
-    /// This function is called so that derived classes can
-    /// perform custom actions when the size of the window changes.
     ///
     ////////////////////////////////////////////////////////////
     void onResize() override;
@@ -202,107 +264,13 @@ private:
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    unsigned int m_defaultFrameBuffer{}; //!< Framebuffer to bind when targeting this window
+    struct RenderContext;
+
+    std::unique_ptr<RenderContext> m_renderContext; //!< Backend-specific rendering context
+    ContextSettings               m_settings;      //!< Cached context settings
+    unsigned int                  m_defaultFrameBuffer{}; //!< Framebuffer to bind when targeting this window
+    Clock                         m_clock;         //!< Clock for frame rate limiting
+    Time                          m_frameTimeLimit; //!< Minimum time between frames
 };
 
 } // namespace sf
-
-
-////////////////////////////////////////////////////////////
-/// \class sf::RenderWindow
-/// \ingroup graphics
-///
-/// `sf::RenderWindow` is the main class of the Graphics module.
-/// It defines an OS window that can be painted using the other
-/// classes of the graphics module.
-///
-/// `sf::RenderWindow` is derived from `sf::Window`, thus it inherits
-/// all its features: events, window management, OpenGL rendering,
-/// etc. See the documentation of `sf::Window` for a more complete
-/// description of all these features, as well as code examples.
-///
-/// On top of that, `sf::RenderWindow` adds more features related to
-/// 2D drawing with the graphics module (see its base class
-/// `sf::RenderTarget` for more details).
-/// Here is a typical rendering and event loop with a `sf::RenderWindow`:
-///
-/// \code
-/// // Declare and create a new render-window
-/// sf::RenderWindow window(sf::VideoMode({800, 600}), "SFML window");
-///
-/// // Limit the framerate to 60 frames per second (this step is optional)
-/// window.setFramerateLimit(60);
-///
-/// // The main loop - ends as soon as the window is closed
-/// while (window.isOpen())
-/// {
-///    // Event processing
-///    while (const std::optional event = window.pollEvent())
-///    {
-///        // Request for closing the window
-///        if (event->is<sf::Event::Closed>())
-///            window.close();
-///    }
-///
-///    // Clear the whole window before rendering a new frame
-///    window.clear();
-///
-///    // Draw some graphical entities
-///    window.draw(sprite);
-///    window.draw(circle);
-///    window.draw(text);
-///
-///    // End the current frame and display its contents on screen
-///    window.display();
-/// }
-/// \endcode
-///
-/// Like `sf::Window`, `sf::RenderWindow` is still able to render direct
-/// OpenGL stuff. It is even possible to mix together OpenGL calls
-/// and regular SFML drawing commands.
-///
-/// \code
-/// // Create the render window
-/// sf::RenderWindow window(sf::VideoMode({800, 600}), "SFML OpenGL");
-///
-/// // Create a sprite and a text to display
-/// const sf::Texture texture("circle.png");
-/// sf::Sprite sprite(texture);
-/// const sf::Font font("arial.ttf");
-/// sf::Text text(font);
-/// ...
-///
-/// // Perform OpenGL initializations
-/// glMatrixMode(GL_PROJECTION);
-/// ...
-///
-/// // Start the rendering loop
-/// while (window.isOpen())
-/// {
-///     // Process events
-///     ...
-///
-///     // Draw a background sprite
-///     window.pushGLStates();
-///     window.draw(sprite);
-///     window.popGLStates();
-///
-///     // Draw a 3D object using OpenGL
-///     glBegin(GL_TRIANGLES);
-///         glVertex3f(...);
-///         ...
-///     glEnd();
-///
-///     // Draw text on top of the 3D object
-///     window.pushGLStates();
-///     window.draw(text);
-///     window.popGLStates();
-///
-///     // Finally, display the rendered frame on screen
-///     window.display();
-/// }
-/// \endcode
-///
-/// \see `sf::Window`, `sf::RenderTarget`, `sf::RenderTexture`, `sf::View`
-///
-////////////////////////////////////////////////////////////

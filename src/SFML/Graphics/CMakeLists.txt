@@ -84,6 +84,7 @@ source_group("render texture" FILES ${RENDER_TEXTURE_SRC})
 # backend sources
 set(BACKEND_SRC
     ${SRCROOT}/Backend/GraphicsBackend.hpp
+    ${SRCROOT}/Backend/GraphicsBackend.cpp
     ${SRCROOT}/Backend/BackendFactory.hpp
 )
 if(SFML_GRAPHICS_BACKEND STREQUAL "Metal")

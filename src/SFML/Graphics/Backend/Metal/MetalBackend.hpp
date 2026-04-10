@@ -206,6 +206,16 @@ public:
     void         prepareUniformUpdate(BackendShaderHandle handle) override;
     void         finalizeUniformUpdate() override;
 
+    ////////////////////////////////////////////////////////////
+    // Window rendering lifecycle
+    ////////////////////////////////////////////////////////////
+
+    void initializeWindowRendering(void* nativeHandle, Vector2u size, const ContextSettings& settings) override;
+    void destroyWindowRendering(void* nativeHandle) override;
+    void presentWindow(void* nativeHandle) override;
+    void setWindowVerticalSyncEnabled(void* nativeHandle, bool enabled) override;
+    bool setWindowActive(void* nativeHandle, bool active) override;
+
 private:
     ////////////////////////////////////////////////////////////
     // Member data

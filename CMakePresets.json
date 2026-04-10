@@ -17,14 +17,18 @@
     {
       "name": "mac",
       "inherits": "dev",
-      "generator": "Xcode"
+      "generator": "Xcode",
+      "cacheVariables": {
+        "SFML_GRAPHICS_BACKEND": "Metal"
+      }
     },
     {
       "name": "ios",
       "inherits": "dev",
       "generator": "Xcode",
       "cacheVariables": {
-        "CMAKE_SYSTEM_NAME": "iOS"
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "SFML_GRAPHICS_BACKEND": "Metal"
       }
     }
   ]

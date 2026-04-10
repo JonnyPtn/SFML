@@ -733,6 +733,64 @@ public:
     ////////////////////////////////////////////////////////////
     virtual void finalizeUniformUpdate() = 0;
 
+    ////////////////////////////////////////////////////////////
+    // Window rendering lifecycle
+    //
+    // These methods manage the backend's rendering surface for
+    // OS windows. For GL, these are no-ops (GL context handles
+    // presentation). For Metal, these manage the CAMetalLayer
+    // and drawable presentation.
+    //
+    // The nativeHandle parameter is the platform-specific window
+    // handle (HWND, NSWindow*, etc.) used to identify the window.
+    ////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Initialize the rendering surface for a window
+    ///
+    /// \param nativeHandle Platform-specific window handle
+    /// \param size         Initial window size in pixels
+    /// \param settings     Requested context settings
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual void initializeWindowRendering(void* nativeHandle, Vector2u size, const ContextSettings& settings);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Tear down the rendering surface for a window
+    ///
+    /// \param nativeHandle Platform-specific window handle
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual void destroyWindowRendering(void* nativeHandle);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Present the current frame to the window
+    ///
+    /// \param nativeHandle Platform-specific window handle
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual void presentWindow(void* nativeHandle);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Set vertical sync for a window
+    ///
+    /// \param nativeHandle Platform-specific window handle
+    /// \param enabled      `true` to enable vsync
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual void setWindowVerticalSyncEnabled(void* nativeHandle, bool enabled);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Activate or deactivate a window's rendering surface
+    ///
+    /// \param nativeHandle Platform-specific window handle
+    /// \param active       `true` to activate, `false` to deactivate
+    ///
+    /// \return `true` if successful
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual bool setWindowActive(void* nativeHandle, bool active);
+
 protected:
     ////////////////////////////////////////////////////////////
     /// \brief Default constructor

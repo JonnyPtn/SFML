@@ -31,37 +31,266 @@
 
 #include <SFML/Window/VideoMode.hpp>
 
+#if !defined(SFML_BACKEND_METAL)
+#include <SFML/Window/GlContext.hpp>
+#endif
+
+#include <SFML/Window/WindowImpl.hpp>
+
+#include <SFML/System/Err.hpp>
+#include <SFML/System/Sleep.hpp>
+
 
 namespace sf
 {
+
+////////////////////////////////////////////////////////////
+// Pimpl: backend-specific rendering context
+////////////////////////////////////////////////////////////
+struct RenderWindow::RenderContext
+{
+#if !defined(SFML_BACKEND_METAL)
+    std::shared_ptr<void>             sharedGlContext{priv::GlContext::getSharedContext()};
+    std::unique_ptr<priv::GlContext>  glContext;
+#endif
+};
+
+
+////////////////////////////////////////////////////////////
+RenderWindow::RenderWindow() = default;
+
+
+////////////////////////////////////////////////////////////
+RenderWindow::~RenderWindow()
+{
+    close();
+}
+
+
+////////////////////////////////////////////////////////////
+RenderWindow::RenderWindow(RenderWindow&&) noexcept = default;
+
+
+////////////////////////////////////////////////////////////
+RenderWindow& RenderWindow::operator=(RenderWindow&&) noexcept = default;
+
+
 ////////////////////////////////////////////////////////////
 RenderWindow::RenderWindow(VideoMode mode, const String& title, std::uint32_t style, State state, const ContextSettings& settings)
 {
-    // Don't call the base class constructor because it contains virtual function calls
-    Window::create(mode, title, style, state, settings);
+    RenderWindow::create(mode, title, style, state, settings);
 }
 
 
 ////////////////////////////////////////////////////////////
 RenderWindow::RenderWindow(VideoMode mode, const String& title, State state, const ContextSettings& settings)
 {
-    // Don't call the base class constructor because it contains virtual function calls
-    Window::create(mode, title, sf::Style::Default, state, settings);
+    RenderWindow::create(mode, title, Style::Default, state, settings);
 }
 
 
 ////////////////////////////////////////////////////////////
 RenderWindow::RenderWindow(WindowHandle handle, const ContextSettings& settings)
 {
-    // Don't call the base class constructor because it contains virtual function calls
-    Window::create(handle, settings);
+    RenderWindow::create(handle, settings);
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::create(VideoMode mode, const String& title, std::uint32_t style, State state, const ContextSettings& settings)
+{
+    // Close any existing window
+    close();
+
+    // Create the platform window
+    m_impl = priv::WindowImpl::create(mode, title, style, state, settings);
+
+    // Create the rendering context
+    m_renderContext = std::make_unique<RenderContext>();
+
+#if defined(SFML_BACKEND_METAL)
+    auto& backend = priv::getGraphicsBackend();
+    backend.initializeWindowRendering(getNativeHandle(), mode.size, settings);
+    m_settings = settings;
+#else
+    m_renderContext->glContext = priv::GlContext::create(settings, *m_impl, mode.bitsPerPixel);
+    m_renderContext->glContext->setActive(true);
+    m_settings = m_renderContext->glContext->getSettings();
+#endif
+
+    // Set defaults and initialize (calls onCreate)
+    setVerticalSyncEnabled(false);
+    setFramerateLimit(0);
+    m_clock.restart();
+    WindowBase::initialize();
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::create(VideoMode mode, const String& title, std::uint32_t style, State state)
+{
+    create(mode, title, style, state, ContextSettings{});
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::create(VideoMode mode, const String& title, State state)
+{
+    create(mode, title, Style::Default, state, ContextSettings{});
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::create(WindowHandle handle)
+{
+    create(handle, ContextSettings{});
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::create(WindowHandle handle, const ContextSettings& settings)
+{
+    close();
+
+    m_impl = priv::WindowImpl::create(handle);
+
+    m_renderContext = std::make_unique<RenderContext>();
+
+#if defined(SFML_BACKEND_METAL)
+    auto& backend = priv::getGraphicsBackend();
+    backend.initializeWindowRendering(getNativeHandle(), m_impl->getSize(), settings);
+    m_settings = settings;
+#else
+    m_renderContext->glContext = priv::GlContext::create(settings, *m_impl, VideoMode::getDesktopMode().bitsPerPixel);
+    m_renderContext->glContext->setActive(true);
+    m_settings = m_renderContext->glContext->getSettings();
+#endif
+
+    setVerticalSyncEnabled(false);
+    setFramerateLimit(0);
+    m_clock.restart();
+    WindowBase::initialize();
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::close()
+{
+#if defined(SFML_BACKEND_METAL)
+    if (m_impl)
+    {
+        auto& backend = priv::getGraphicsBackend();
+        backend.destroyWindowRendering(getNativeHandle());
+    }
+#endif
+
+    m_renderContext.reset();
+    WindowBase::close();
+}
+
+
+////////////////////////////////////////////////////////////
+const ContextSettings& RenderWindow::getSettings() const
+{
+    return m_settings;
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::setVerticalSyncEnabled(bool enabled)
+{
+#if defined(SFML_BACKEND_METAL)
+    if (m_impl)
+    {
+        auto& backend = priv::getGraphicsBackend();
+        backend.setWindowVerticalSyncEnabled(getNativeHandle(), enabled);
+    }
+#else
+    if (m_renderContext && m_renderContext->glContext && m_renderContext->glContext->setActive(true))
+        m_renderContext->glContext->setVerticalSyncEnabled(enabled);
+#endif
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::setFramerateLimit(unsigned int limit)
+{
+    if (limit > 0)
+        m_frameTimeLimit = seconds(1.f / static_cast<float>(limit));
+    else
+        m_frameTimeLimit = Time::Zero;
+}
+
+
+////////////////////////////////////////////////////////////
+bool RenderWindow::setActive(bool active)
+{
+    bool result = true;
+
+#if defined(SFML_BACKEND_METAL)
+    if (m_impl)
+    {
+        auto& backend = priv::getGraphicsBackend();
+        result = backend.setWindowActive(getNativeHandle(), active);
+    }
+#else
+    if (m_renderContext && m_renderContext->glContext)
+    {
+        result = m_renderContext->glContext->setActive(active);
+        if (!result)
+        {
+            err() << "Failed to activate the window's context" << std::endl;
+            return false;
+        }
+    }
+#endif
+
+    // Update RenderTarget tracking
+    if (result)
+        result = RenderTarget::setActive(active);
+
+    // Bind the default framebuffer
+    auto& backend = priv::getGraphicsBackend();
+    if (active && result && backend.isFramebufferAvailable())
+    {
+        backend.bindFramebuffer(static_cast<priv::BackendFramebufferHandle>(m_defaultFrameBuffer));
+        return true;
+    }
+
+    return result;
+}
+
+
+////////////////////////////////////////////////////////////
+void RenderWindow::display()
+{
+#if defined(SFML_BACKEND_METAL)
+    if (m_impl)
+    {
+        auto& backend = priv::getGraphicsBackend();
+        backend.presentWindow(getNativeHandle());
+    }
+#else
+    if (m_renderContext && m_renderContext->glContext)
+    {
+        if (m_renderContext->glContext->setActive(true))
+            m_renderContext->glContext->display();
+    }
+#endif
+
+    // Limit the framerate if needed
+    if (m_frameTimeLimit != Time::Zero)
+    {
+        sleep(m_frameTimeLimit - m_clock.getElapsedTime());
+        m_clock.restart();
+    }
 }
 
 
 ////////////////////////////////////////////////////////////
 Vector2u RenderWindow::getSize() const
 {
-    return Window::getSize();
+    return WindowBase::getSize();
 }
 
 
@@ -75,30 +304,7 @@ void RenderWindow::setIcon(const Image& icon)
 ////////////////////////////////////////////////////////////
 bool RenderWindow::isSrgb() const
 {
-    return getSettings().sRgbCapable;
-}
-
-
-////////////////////////////////////////////////////////////
-bool RenderWindow::setActive(bool active)
-{
-    bool result = Window::setActive(active);
-
-    // Update RenderTarget tracking
-    if (result)
-        result = RenderTarget::setActive(active);
-
-    // If FBOs are available, make sure none are bound when we
-    // try to draw to the default framebuffer of the RenderWindow
-    auto& backend = priv::getGraphicsBackend();
-    if (active && result && backend.isFramebufferAvailable())
-    {
-        backend.bindFramebuffer(static_cast<priv::BackendFramebufferHandle>(m_defaultFrameBuffer));
-
-        return true;
-    }
-
-    return result;
+    return m_settings.sRgbCapable;
 }
 
 
@@ -108,8 +314,6 @@ void RenderWindow::onCreate()
     auto& backend = priv::getGraphicsBackend();
     if (backend.isFramebufferAvailable())
     {
-        // Retrieve the framebuffer ID we have to bind when targeting the window for rendering
-        // We assume that this window's context is still active at this point
         m_defaultFrameBuffer = backend.getDefaultFramebufferBinding();
     }
 
