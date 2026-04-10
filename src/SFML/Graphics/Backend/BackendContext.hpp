@@ -45,7 +45,7 @@ namespace sf::priv
 ////////////////////////////////////////////////////////////
 #if defined(SFML_BACKEND_METAL)
 
-struct BackendContextLock
+struct [[maybe_unused]] BackendContextLock
 {
     BackendContextLock()                                   = default;
     ~BackendContextLock()                                  = default;
