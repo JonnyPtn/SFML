@@ -30,10 +30,6 @@
 #include <SFML/Graphics/Backend/GraphicsBackend.hpp>
 #include <SFML/Graphics/RenderTextureImpl.hpp>
 
-#if !defined(SFML_BACKEND_METAL)
-#include <SFML/Window/GlResource.hpp>
-#endif
-
 #include <memory>
 
 
@@ -50,9 +46,6 @@ namespace priv
 ///
 ////////////////////////////////////////////////////////////
 class RenderTextureImplFBO : public RenderTextureImpl
-#if !defined(SFML_BACKEND_METAL)
-    , GlResource
-#endif
 {
 public:
     ////////////////////////////////////////////////////////////

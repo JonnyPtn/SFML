@@ -62,9 +62,6 @@ VertexBuffer::VertexBuffer(PrimitiveType type, Usage usage) : m_primitiveType(ty
 
 ////////////////////////////////////////////////////////////
 VertexBuffer::VertexBuffer(const VertexBuffer& copy) :
-#if !defined(SFML_BACKEND_METAL)
-    GlResource(copy),
-#endif
     m_primitiveType(copy.m_primitiveType),
     m_usage(copy.m_usage)
 {

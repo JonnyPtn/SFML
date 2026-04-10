@@ -33,10 +33,6 @@
 #include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/RenderStates.hpp>
 
-#if !defined(SFML_BACKEND_METAL)
-#include <SFML/Window/GlResource.hpp>
-#endif
-
 #include <cstddef>
 
 
@@ -50,9 +46,6 @@ struct Vertex;
 ///
 ////////////////////////////////////////////////////////////
 class SFML_GRAPHICS_API VertexBuffer : public Drawable
-#if !defined(SFML_BACKEND_METAL)
-    , private GlResource
-#endif
 {
 public:
     ////////////////////////////////////////////////////////////

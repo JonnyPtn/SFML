@@ -144,9 +144,6 @@ Texture::Texture(Vector2u size, bool sRgb) : Texture()
 
 ////////////////////////////////////////////////////////////
 Texture::Texture(const Texture& copy) :
-#if !defined(SFML_BACKEND_METAL)
-    GlResource(copy),
-#endif
     m_isSmooth(copy.m_isSmooth),
     m_sRgb(copy.m_sRgb),
     m_isRepeated(copy.m_isRepeated),
