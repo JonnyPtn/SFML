@@ -26,11 +26,10 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendContext.hpp>
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/Shader.hpp>
 #include <SFML/Graphics/Texture.hpp>
-
-#include <SFML/Window/GlResource.hpp>
 
 #include <SFML/System/Err.hpp>
 #include <SFML/System/Exception.hpp>
@@ -165,7 +164,7 @@ struct Shader::UniformBinder
     UniformBinder(const UniformBinder&) = delete;
     UniformBinder& operator=(const UniformBinder&) = delete;
 
-    TransientContextLock lock;
+    priv::BackendContextLock lock;
     int                  location{-1};
 };
 
@@ -247,7 +246,7 @@ Shader::Shader(InputStream& vertexShaderStream, InputStream& geometryShaderStrea
 ////////////////////////////////////////////////////////////
 Shader::~Shader()
 {
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     if (m_shaderProgram)
         priv::getGraphicsBackend().destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
@@ -273,7 +272,7 @@ Shader& Shader::operator=(Shader&& right) noexcept
 
     if (m_shaderProgram)
     {
-        const TransientContextLock lock;
+        const priv::BackendContextLock lock;
         priv::getGraphicsBackend().destroyShader(static_cast<priv::BackendShaderHandle>(m_shaderProgram));
     }
 
@@ -598,7 +597,7 @@ void Shader::setUniform(const std::string& name, const Texture& texture)
     if (!m_shaderProgram)
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     // Find the location of the variable in the shader
     const int location = getUniformLocation(name);
@@ -633,7 +632,7 @@ void Shader::setUniform(const std::string& name, CurrentTextureType)
     if (!m_shaderProgram)
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     // Find the location of the variable in the shader
     m_currentTexture = getUniformLocation(name);
@@ -740,7 +739,7 @@ unsigned int Shader::getNativeHandle() const
 ////////////////////////////////////////////////////////////
 void Shader::bind(const Shader* shader)
 {
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     // Make sure that we can use shaders
     if (!isAvailable())
@@ -779,7 +778,7 @@ bool Shader::isAvailable()
 {
     static const bool available = []
     {
-        const TransientContextLock contextLock;
+        const priv::BackendContextLock contextLock;
         return priv::getGraphicsBackend().isShaderAvailable();
     }();
 
@@ -792,7 +791,7 @@ bool Shader::isGeometryAvailable()
 {
     static const bool available = []
     {
-        const TransientContextLock contextLock;
+        const priv::BackendContextLock contextLock;
         return priv::getGraphicsBackend().isGeometryShaderAvailable();
     }();
 
@@ -803,7 +802,7 @@ bool Shader::isGeometryAvailable()
 ////////////////////////////////////////////////////////////
 bool Shader::compile(std::string_view vertexShaderCode, std::string_view geometryShaderCode, std::string_view fragmentShaderCode)
 {
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     auto& backend = priv::getGraphicsBackend();
 
@@ -850,7 +849,6 @@ bool Shader::compile(std::string_view vertexShaderCode, std::string_view geometr
 ////////////////////////////////////////////////////////////
 void Shader::bindTextures() const
 {
-#ifndef SFML_OPENGL_ES
     auto& backend = priv::getGraphicsBackend();
 
     auto it = m_textures.begin();
@@ -863,7 +861,6 @@ void Shader::bindTextures() const
                                   index);
         ++it;
     }
-#endif
 }
 
 

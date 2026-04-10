@@ -24,24 +24,39 @@
 
 #pragma once
 
-namespace sf
-{
 ////////////////////////////////////////////////////////////
-/// \ingroup graphics
-/// \brief Types of primitives that a `sf::VertexArray` can render
+// Headers
+////////////////////////////////////////////////////////////
+#if !defined(SFML_BACKEND_METAL)
+#include <SFML/Window/GlResource.hpp>
+#endif
+
+
+namespace sf::priv
+{
+
+////////////////////////////////////////////////////////////
+/// \brief RAII context lock that ensures the graphics backend
+///        can be safely called from the current thread.
 ///
-/// Points and lines have no area, therefore their thickness
-/// will always be 1 pixel, regardless the current transform
-/// and view.
+/// For OpenGL this activates a GL context. For other backends
+/// this is a no-op.
 ///
 ////////////////////////////////////////////////////////////
-enum class PrimitiveType
+#if defined(SFML_BACKEND_METAL)
+
+struct BackendContextLock
 {
-    Points,        //!< List of individual points
-    Lines,         //!< List of individual lines
-    LineStrip,     //!< List of connected lines, a point uses the previous point to form a line
-    Triangles,     //!< List of individual triangles
-    TriangleStrip  //!< List of connected triangles, a point uses the two previous points to form a triangle
+    BackendContextLock()                                   = default;
+    ~BackendContextLock()                                  = default;
+    BackendContextLock(const BackendContextLock&)            = delete;
+    BackendContextLock& operator=(const BackendContextLock&) = delete;
 };
 
-} // namespace sf
+#else
+
+using BackendContextLock = GlResource::TransientContextLock;
+
+#endif
+
+} // namespace sf::priv

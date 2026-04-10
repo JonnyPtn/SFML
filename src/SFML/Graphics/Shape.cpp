@@ -225,19 +225,29 @@ void Shape::update()
         return;
     }
 
-    m_vertices.resize(count + 2); // + 2 for center and repeated first point
+    // Compute bounding rectangle from perimeter points
+    Vector2f minPoint = getPoint(0);
+    Vector2f maxPoint = minPoint;
+    for (std::size_t i = 1; i < count; ++i)
+    {
+        const Vector2f p = getPoint(i);
+        minPoint.x       = std::min(minPoint.x, p.x);
+        minPoint.y       = std::min(minPoint.y, p.y);
+        maxPoint.x       = std::max(maxPoint.x, p.x);
+        maxPoint.y       = std::max(maxPoint.y, p.y);
+    }
+    m_insideBounds = FloatRect(minPoint, maxPoint - minPoint);
 
-    // Position
+    const Vector2f center = m_insideBounds.getCenter();
+
+    // Build explicit triangles: each triangle is (center, point_i, point_{(i+1) % count})
+    m_vertices.resize(count * 3);
     for (std::size_t i = 0; i < count; ++i)
-        m_vertices[i + 1].position = getPoint(i);
-    m_vertices[count + 1].position = m_vertices[1].position;
-
-    // Update the bounding rectangle
-    m_vertices[0]  = m_vertices[1]; // so that the result of getBounds() is correct
-    m_insideBounds = m_vertices.getBounds();
-
-    // Compute the center and make it the first vertex
-    m_vertices[0].position = m_insideBounds.getCenter();
+    {
+        m_vertices[i * 3 + 0].position = center;
+        m_vertices[i * 3 + 1].position = getPoint(i);
+        m_vertices[i * 3 + 2].position = getPoint((i + 1) % count);
+    }
 
     // Color
     updateFillColors();
@@ -297,15 +307,16 @@ void Shape::updateTexCoords()
 ////////////////////////////////////////////////////////////
 void Shape::updateOutline()
 {
-    // Return if there is no outline or no vertices
-    if (m_outlineThickness == 0.f || m_vertices.getVertexCount() < 2)
+    const std::size_t count = getPointCount();
+
+    // Return if there is no outline or not enough points
+    if (m_outlineThickness == 0.f || count < 3)
     {
         m_outlineVertices.clear();
         m_bounds = m_insideBounds;
         return;
     }
 
-    const std::size_t count = m_vertices.getVertexCount() - 2;
     m_outlineVertices.resize((count + 1) * 2); // We need at least that many vertices.
                                                // We will add two more vertices each time we need a bevel.
 
@@ -313,11 +324,11 @@ void Shape::updateOutline()
     const bool flipNormals = [this, count]()
     {
         // p0 is either strictly inside the shape, or on an edge.
-        const sf::Vector2f p0 = m_vertices[0].position;
+        const sf::Vector2f p0 = m_insideBounds.getCenter();
         for (std::size_t i = 0; i < count; ++i)
         {
-            const sf::Vector2f p1      = m_vertices[i + 1].position;
-            const sf::Vector2f p2      = m_vertices[i + 2].position;
+            const sf::Vector2f p1      = getPoint(i);
+            const sf::Vector2f p2      = getPoint((i + 1) % count);
             const float        product = (p1 - p0).cross(p2 - p0);
             if (product == 0.f)
             {
@@ -332,12 +343,10 @@ void Shape::updateOutline()
     std::size_t outlineIndex = 0;
     for (std::size_t i = 0; i < count; ++i)
     {
-        const std::size_t index = i + 1;
-
         // Get the two segments shared by the current point
-        const Vector2f p0 = (i == 0) ? m_vertices[count].position : m_vertices[index - 1].position;
-        const Vector2f p1 = m_vertices[index].position;
-        const Vector2f p2 = m_vertices[index + 1].position;
+        const Vector2f p0 = getPoint((i + count - 1) % count);
+        const Vector2f p1 = getPoint(i);
+        const Vector2f p2 = getPoint((i + 1) % count);
 
         // Compute their direction
         const Vector2f d1 = computeDirection(p0, p1);

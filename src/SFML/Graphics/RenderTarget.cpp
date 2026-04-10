@@ -427,8 +427,8 @@ void RenderTarget::resetGLStates()
 
     if (RenderTargetImpl::isActive(m_id) || setActive(true))
     {
-        // Delegate initial GL state setup to the backend
-        static_cast<priv::GLBackend&>(backend).resetGLStates();
+        // Delegate initial state setup to the backend
+        backend.resetStates();
 
         m_cache.scissorEnabled = false;
         m_cache.stencilEnabled = false;

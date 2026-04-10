@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendContext.hpp>
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Vertex.hpp>
@@ -61,7 +62,9 @@ VertexBuffer::VertexBuffer(PrimitiveType type, Usage usage) : m_primitiveType(ty
 
 ////////////////////////////////////////////////////////////
 VertexBuffer::VertexBuffer(const VertexBuffer& copy) :
+#if !defined(SFML_BACKEND_METAL)
     GlResource(copy),
+#endif
     m_primitiveType(copy.m_primitiveType),
     m_usage(copy.m_usage)
 {
@@ -84,7 +87,7 @@ VertexBuffer::~VertexBuffer()
 {
     if (m_buffer)
     {
-        const TransientContextLock contextLock;
+        const priv::BackendContextLock contextLock;
         priv::getGraphicsBackend().destroyBuffer(static_cast<priv::BackendBufferHandle>(m_buffer));
     }
 }
@@ -96,7 +99,7 @@ bool VertexBuffer::create(std::size_t vertexCount)
     if (!isAvailable())
         return false;
 
-    const TransientContextLock contextLock;
+    const priv::BackendContextLock contextLock;
 
     if (!m_buffer)
     {
@@ -142,7 +145,7 @@ bool VertexBuffer::update(const Vertex* vertices, std::size_t vertexCount, unsig
     if (offset && (offset + vertexCount > m_size))
         return false;
 
-    const TransientContextLock contextLock;
+    const priv::BackendContextLock contextLock;
 
     auto& backend = priv::getGraphicsBackend();
 
@@ -168,7 +171,7 @@ bool VertexBuffer::update(const VertexBuffer& vertexBuffer)
     if (!m_buffer || !vertexBuffer.m_buffer)
         return false;
 
-    const TransientContextLock contextLock;
+    const priv::BackendContextLock contextLock;
 
     auto& backend = priv::getGraphicsBackend();
 
@@ -220,7 +223,7 @@ void VertexBuffer::bind(const VertexBuffer* vertexBuffer)
     if (!isAvailable())
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     priv::getGraphicsBackend().bindBuffer(
         static_cast<priv::BackendBufferHandle>(vertexBuffer ? vertexBuffer->m_buffer : 0));
@@ -260,7 +263,7 @@ bool VertexBuffer::isAvailable()
 {
     static const bool available = []
     {
-        const TransientContextLock contextLock;
+        const priv::BackendContextLock contextLock;
 
         return priv::getGraphicsBackend().isVertexBufferAvailable();
     }();

@@ -32,7 +32,9 @@
 #include <SFML/Graphics/CoordinateType.hpp>
 #include <SFML/Graphics/Rect.hpp>
 
+#if !defined(SFML_BACKEND_METAL)
 #include <SFML/Window/GlResource.hpp>
+#endif
 
 #include <SFML/System/Vector2.hpp>
 
@@ -52,7 +54,10 @@ class Image;
 /// \brief Image living on the graphics card that can be used for drawing
 ///
 ////////////////////////////////////////////////////////////
-class SFML_GRAPHICS_API Texture : GlResource
+class SFML_GRAPHICS_API Texture
+#if !defined(SFML_BACKEND_METAL)
+    : GlResource
+#endif
 {
 public:
     ////////////////////////////////////////////////////////////

@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendContext.hpp>
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/RenderTextureImplFBO.hpp>
 
@@ -53,7 +54,7 @@ RenderTextureImplFBO::~RenderTextureImplFBO()
 ////////////////////////////////////////////////////////////
 bool RenderTextureImplFBO::isAvailable()
 {
-    const TransientContextLock lock;
+    const BackendContextLock lock;
 
     return getGraphicsBackend().isFramebufferAvailable();
 }
@@ -62,7 +63,7 @@ bool RenderTextureImplFBO::isAvailable()
 ////////////////////////////////////////////////////////////
 unsigned int RenderTextureImplFBO::getMaximumAntiAliasingLevel()
 {
-    const TransientContextLock lock;
+    const BackendContextLock lock;
 
     return getGraphicsBackend().getMaxAntiAliasingLevel();
 }
@@ -78,7 +79,7 @@ void RenderTextureImplFBO::unbind()
 ////////////////////////////////////////////////////////////
 bool RenderTextureImplFBO::create(Vector2u size, unsigned int textureId, const ContextSettings& settings)
 {
-    const TransientContextLock lock;
+    const BackendContextLock lock;
 
     m_framebufferHandle = getGraphicsBackend().createFramebuffer(size,
                                                                  static_cast<BackendTextureHandle>(textureId),

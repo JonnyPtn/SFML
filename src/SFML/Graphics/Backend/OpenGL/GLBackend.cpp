@@ -446,8 +446,8 @@ void GLBackend::applyTransform(const Transform& projection, const Transform& mod
 ////////////////////////////////////////////////////////////
 void GLBackend::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std::size_t vertexCount)
 {
-    static constexpr EnumArray<PrimitiveType, GLenum, 6> modes =
-        {GL_POINTS, GL_LINES, GL_LINE_STRIP, GL_TRIANGLES, GL_TRIANGLE_STRIP, GL_TRIANGLE_FAN};
+    static constexpr EnumArray<PrimitiveType, GLenum, 5> modes =
+        {GL_POINTS, GL_LINES, GL_LINE_STRIP, GL_TRIANGLES, GL_TRIANGLE_STRIP};
 
     glCheck(glDrawArrays(modes[type], static_cast<GLint>(firstVertex), static_cast<GLsizei>(vertexCount)));
 }
@@ -2048,7 +2048,7 @@ void GLBackend::finalizeUniformUpdate()
 
 
 ////////////////////////////////////////////////////////////
-void GLBackend::resetGLStates()
+void GLBackend::resetStates()
 {
     ensureExtensionsInit();
 

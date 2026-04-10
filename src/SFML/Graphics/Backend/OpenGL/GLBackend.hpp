@@ -206,11 +206,7 @@ public:
     void         prepareUniformUpdate(BackendShaderHandle handle) override;
     void         finalizeUniformUpdate() override;
 
-    ////////////////////////////////////////////////////////////
-    // OpenGL-specific: Reset internal GL states for first draw
-    ////////////////////////////////////////////////////////////
-
-    void resetGLStates();
+    void resetStates() override;
 
 private:
     ////////////////////////////////////////////////////////////

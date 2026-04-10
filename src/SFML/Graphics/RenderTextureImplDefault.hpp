@@ -29,7 +29,9 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/RenderTextureImpl.hpp>
 
+#if !defined(SFML_BACKEND_METAL)
 #include <SFML/Window/GlResource.hpp>
+#endif
 
 #include <SFML/System/Vector2.hpp>
 
@@ -48,7 +50,10 @@ namespace priv
 ///        using an in-memory context
 ///
 ////////////////////////////////////////////////////////////
-class RenderTextureImplDefault : public RenderTextureImpl, GlResource
+class RenderTextureImplDefault : public RenderTextureImpl
+#if !defined(SFML_BACKEND_METAL)
+    , GlResource
+#endif
 {
 public:
     ////////////////////////////////////////////////////////////

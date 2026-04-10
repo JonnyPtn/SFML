@@ -682,6 +682,15 @@ public:
     virtual bool isSrgbTextureAvailable() const = 0;
 
     ////////////////////////////////////////////////////////////
+    /// \brief Reset internal backend states for SFML rendering
+    ///
+    /// Sets all backend-specific state to known defaults so
+    /// that subsequent SFML draw calls work correctly.
+    ///
+    ////////////////////////////////////////////////////////////
+    virtual void resetStates() = 0;
+
+    ////////////////////////////////////////////////////////////
     /// \brief Copy vertex buffer data via map/unmap fallback
     ///
     /// \param destHandle   Destination buffer handle

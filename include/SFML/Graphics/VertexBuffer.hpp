@@ -33,7 +33,9 @@
 #include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/RenderStates.hpp>
 
+#if !defined(SFML_BACKEND_METAL)
 #include <SFML/Window/GlResource.hpp>
+#endif
 
 #include <cstddef>
 
@@ -47,7 +49,10 @@ struct Vertex;
 /// \brief Vertex buffer storage for one or more 2D primitives
 ///
 ////////////////////////////////////////////////////////////
-class SFML_GRAPHICS_API VertexBuffer : public Drawable, private GlResource
+class SFML_GRAPHICS_API VertexBuffer : public Drawable
+#if !defined(SFML_BACKEND_METAL)
+    , private GlResource
+#endif
 {
 public:
     ////////////////////////////////////////////////////////////

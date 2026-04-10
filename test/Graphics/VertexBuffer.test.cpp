@@ -168,8 +168,8 @@ TEST_CASE("[Graphics] sf::VertexBuffer", "[.display]")
     SECTION("Set/get primitive type")
     {
         sf::VertexBuffer vertexBuffer;
-        vertexBuffer.setPrimitiveType(sf::PrimitiveType::TriangleFan);
-        CHECK(vertexBuffer.getPrimitiveType() == sf::PrimitiveType::TriangleFan);
+        vertexBuffer.setPrimitiveType(sf::PrimitiveType::TriangleStrip);
+        CHECK(vertexBuffer.getPrimitiveType() == sf::PrimitiveType::TriangleStrip);
     }
 
     SECTION("Set/get usage")

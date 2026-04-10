@@ -31,7 +31,9 @@
 
 #include <SFML/Graphics/Glsl.hpp>
 
+#if !defined(SFML_BACKEND_METAL)
 #include <SFML/Window/GlResource.hpp>
+#endif
 
 #include <filesystem>
 #include <string>
@@ -50,7 +52,10 @@ class Texture;
 /// \brief Shader class (vertex, geometry and fragment)
 ///
 ////////////////////////////////////////////////////////////
-class SFML_GRAPHICS_API Shader : GlResource
+class SFML_GRAPHICS_API Shader
+#if !defined(SFML_BACKEND_METAL)
+    : GlResource
+#endif
 {
 public:
     ////////////////////////////////////////////////////////////

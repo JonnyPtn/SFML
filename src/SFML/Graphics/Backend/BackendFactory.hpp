@@ -28,7 +28,12 @@
 // Headers
 ////////////////////////////////////////////////////////////
 #include <SFML/Graphics/Backend/GraphicsBackend.hpp>
+
+#if defined(SFML_BACKEND_METAL)
+#include <SFML/Graphics/Backend/Metal/MetalBackend.hpp>
+#else
 #include <SFML/Graphics/Backend/OpenGL/GLBackend.hpp>
+#endif
 
 
 namespace sf::priv
@@ -37,13 +42,16 @@ namespace sf::priv
 ////////////////////////////////////////////////////////////
 /// \brief Get the active graphics backend instance
 ///
-/// Returns a singleton GLBackend for now. Future backends
-/// (Metal, Vulkan) will be selected at compile or init time.
+/// Returns the singleton backend selected at compile time.
 ///
 ////////////////////////////////////////////////////////////
 inline GraphicsBackend& getGraphicsBackend()
 {
+#if defined(SFML_BACKEND_METAL)
+    static MetalBackend backend;
+#else
     static GLBackend backend;
+#endif
     return backend;
 }
 

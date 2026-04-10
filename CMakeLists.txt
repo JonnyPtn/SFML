@@ -51,6 +51,13 @@ if(SFML_BUILD_WINDOW)
     if(SFML_OS_LINUX)
         sfml_set_option(SFML_USE_DRM OFF BOOL "ON to use DRM windowing backend")
     endif()
+
+    # add an option for choosing the graphics backend
+    if(SFML_BUILD_GRAPHICS AND (SFML_OS_MACOS OR SFML_OS_IOS))
+        sfml_set_option(SFML_GRAPHICS_BACKEND "OpenGL" STRING "Graphics backend: OpenGL or Metal")
+    else()
+        set(SFML_GRAPHICS_BACKEND "OpenGL")
+    endif()
 endif()
 
 # macOS specific options

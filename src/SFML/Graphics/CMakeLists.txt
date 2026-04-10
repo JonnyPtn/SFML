@@ -84,9 +84,19 @@ source_group("render texture" FILES ${RENDER_TEXTURE_SRC})
 # backend sources
 set(BACKEND_SRC
     ${SRCROOT}/Backend/GraphicsBackend.hpp
-    ${SRCROOT}/Backend/OpenGL/GLBackend.hpp
-    ${SRCROOT}/Backend/OpenGL/GLBackend.cpp
+    ${SRCROOT}/Backend/BackendFactory.hpp
 )
+if(SFML_GRAPHICS_BACKEND STREQUAL "Metal")
+    list(APPEND BACKEND_SRC
+        ${SRCROOT}/Backend/Metal/MetalBackend.hpp
+        ${SRCROOT}/Backend/Metal/MetalBackend.mm
+    )
+else()
+    list(APPEND BACKEND_SRC
+        ${SRCROOT}/Backend/OpenGL/GLBackend.hpp
+        ${SRCROOT}/Backend/OpenGL/GLBackend.cpp
+    )
+endif()
 source_group("backend" FILES ${BACKEND_SRC})
 
 
@@ -97,6 +107,14 @@ sfml_add_library(Graphics
 
 # setup dependencies
 target_link_libraries(sfml-graphics PUBLIC SFML::Window)
+
+# backend-specific configuration
+if(SFML_GRAPHICS_BACKEND STREQUAL "Metal")
+    target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_METAL=1)
+    target_link_libraries(sfml-graphics PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation")
+else()
+    target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_OPENGL=1)
+endif()
 
 # stb_image sources
 target_include_directories(sfml-graphics SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/extlibs/headers/stb_image")

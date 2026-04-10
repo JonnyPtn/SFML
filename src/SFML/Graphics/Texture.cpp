@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
+#include <SFML/Graphics/Backend/BackendContext.hpp>
 #include <SFML/Graphics/Backend/BackendFactory.hpp>
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -144,7 +145,9 @@ Texture::Texture(Vector2u size, bool sRgb) : Texture()
 
 ////////////////////////////////////////////////////////////
 Texture::Texture(const Texture& copy) :
+#if !defined(SFML_BACKEND_METAL)
     GlResource(copy),
+#endif
     m_isSmooth(copy.m_isSmooth),
     m_sRgb(copy.m_sRgb),
     m_isRepeated(copy.m_isRepeated),
@@ -172,7 +175,7 @@ Texture::~Texture()
     // Destroy the texture via the backend
     if (m_texture)
     {
-        const TransientContextLock lock;
+        const priv::BackendContextLock lock;
         priv::getGraphicsBackend().destroyTexture(static_cast<priv::BackendTextureHandle>(m_texture));
     }
 
@@ -211,7 +214,7 @@ Texture& Texture::operator=(Texture&& right) noexcept
     // Destroy the texture via the backend
     if (m_texture)
     {
-        const TransientContextLock lock;
+        const priv::BackendContextLock lock;
         priv::getGraphicsBackend().destroyTexture(static_cast<priv::BackendTextureHandle>(m_texture));
     }
 
@@ -240,7 +243,7 @@ bool Texture::resize(Vector2u size, bool sRgb)
         return false;
     }
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     // Compute the internal texture dimensions depending on NPOT textures support
@@ -365,7 +368,7 @@ bool Texture::loadFromImage(const Image& image, bool sRgb, const IntRect& area)
     // Create the texture and upload the pixels row by row
     if (resize(Vector2u(rectangle.size), sRgb))
     {
-        const TransientContextLock lock;
+        const priv::BackendContextLock lock;
 
 
         const std::uint8_t* pixels = image.getPixelsPtr() + 4 * (rectangle.position.x + (size.x * rectangle.position.y));
@@ -400,7 +403,7 @@ Image Texture::copyToImage() const
     if (!m_texture)
         return {};
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     // Read back the full actual-size texture via the backend
@@ -453,7 +456,7 @@ void Texture::update(const std::uint8_t* pixels, Vector2u size, Vector2u dest)
     if (!pixels || !m_texture)
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     priv::getGraphicsBackend().updateTexture(static_cast<priv::BackendTextureHandle>(m_texture), pixels, size, dest);
@@ -481,7 +484,7 @@ void Texture::update(const Texture& texture, Vector2u dest)
     if (!m_texture || !texture.m_texture)
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     priv::getGraphicsBackend().updateTextureFromTexture(static_cast<priv::BackendTextureHandle>(m_texture),
                                                         static_cast<priv::BackendTextureHandle>(texture.m_texture),
@@ -525,7 +528,7 @@ void Texture::update(const Window& window, Vector2u dest)
     if (!m_texture || !window.setActive(true))
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     priv::getGraphicsBackend().updateTextureFromFramebuffer(
@@ -548,7 +551,7 @@ void Texture::setSmooth(bool smooth)
     if (!m_texture)
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, m_hasMipmap);
@@ -580,7 +583,7 @@ void Texture::setRepeated(bool repeated)
     if (!m_texture)
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     priv::getGraphicsBackend().setTextureRepeated(static_cast<priv::BackendTextureHandle>(m_texture), m_isRepeated);
@@ -600,7 +603,7 @@ bool Texture::generateMipmap()
     if (!m_texture)
         return false;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     if (!priv::getGraphicsBackend().generateMipmap(static_cast<priv::BackendTextureHandle>(m_texture), m_size, m_isSmooth))
@@ -617,7 +620,7 @@ void Texture::invalidateMipmap()
     if (!m_hasMipmap)
         return;
 
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
 
     priv::getGraphicsBackend().setTextureSmooth(static_cast<priv::BackendTextureHandle>(m_texture), m_isSmooth, false);
@@ -629,7 +632,7 @@ void Texture::invalidateMipmap()
 ////////////////////////////////////////////////////////////
 void Texture::bind(const Texture* texture, CoordinateType coordinateType)
 {
-    const TransientContextLock lock;
+    const priv::BackendContextLock lock;
 
     if (texture && texture->m_texture)
     {
@@ -651,7 +654,7 @@ unsigned int Texture::getMaximumSize()
 {
     static const unsigned int size = []
     {
-        const TransientContextLock transientLock;
+        const priv::BackendContextLock transientLock;
         return priv::getGraphicsBackend().getMaxTextureSize();
     }();
 
