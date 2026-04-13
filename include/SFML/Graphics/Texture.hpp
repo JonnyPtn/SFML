@@ -43,6 +43,7 @@
 namespace sf
 {
 class InputStream;
+class RenderTarget;
 class Window;
 class Image;
 
@@ -548,6 +549,23 @@ public:
     ///
     ////////////////////////////////////////////////////////////
     void update(const Window& window, Vector2u dest);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Update the texture from the contents of a render target
+    ///
+    /// \param renderTarget Render target to copy to the texture
+    ///
+    ////////////////////////////////////////////////////////////
+    void update(RenderTarget& renderTarget);
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Update a part of the texture from the contents of a render target
+    ///
+    /// \param renderTarget Render target to copy to the texture
+    /// \param dest         Coordinates of the destination position
+    ///
+    ////////////////////////////////////////////////////////////
+    void update(RenderTarget& renderTarget, Vector2u dest);
 
     ////////////////////////////////////////////////////////////
     /// \brief Enable or disable the smooth filter

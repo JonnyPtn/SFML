@@ -392,7 +392,7 @@ void GLBackend::applyStencilMode(const StencilMode& mode)
 ////////////////////////////////////////////////////////////
 void GLBackend::setColorMask(bool enable)
 {
-    const auto mask = enable ? GL_TRUE : GL_FALSE;
+    const auto mask = static_cast<GLboolean>(enable ? GL_TRUE : GL_FALSE);
     glCheck(glColorMask(mask, mask, mask, mask));
 }
 
@@ -965,7 +965,7 @@ BackendShaderHandle GLBackend::compileShader(std::string_view vertexShaderCode,
         return 0;
     }
 
-    return reinterpret_cast<BackendShaderHandle>(shaderProgram);
+    return static_cast<BackendShaderHandle>(castFromGlHandle(shaderProgram));
 
 #else
 
@@ -983,7 +983,7 @@ void GLBackend::destroyShader(BackendShaderHandle handle)
 {
 #ifndef SFML_OPENGL_ES
     if (handle)
-        glCheck(GLEXT_glDeleteObject(reinterpret_cast<GLEXT_GLhandle>(handle)));
+        glCheck(GLEXT_glDeleteObject(castToGlHandle(static_cast<unsigned int>(handle))));
 #else
     (void)handle;
 #endif
@@ -994,7 +994,7 @@ void GLBackend::destroyShader(BackendShaderHandle handle)
 void GLBackend::bindShader(BackendShaderHandle handle)
 {
 #ifndef SFML_OPENGL_ES
-    glCheck(GLEXT_glUseProgramObject(reinterpret_cast<GLEXT_GLhandle>(handle)));
+    glCheck(GLEXT_glUseProgramObject(castToGlHandle(static_cast<unsigned int>(handle))));
 #else
     (void)handle;
 #endif
@@ -1005,7 +1005,7 @@ void GLBackend::bindShader(BackendShaderHandle handle)
 int GLBackend::getUniformLocation(BackendShaderHandle handle, const std::string& name)
 {
 #ifndef SFML_OPENGL_ES
-    return glCheck(GLEXT_glGetUniformLocation(reinterpret_cast<GLEXT_GLhandle>(handle), name.c_str()));
+    return glCheck(GLEXT_glGetUniformLocation(castToGlHandle(static_cast<unsigned int>(handle)), name.c_str()));
 #else
     (void)handle;
     (void)name;

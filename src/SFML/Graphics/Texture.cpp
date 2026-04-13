@@ -30,6 +30,8 @@
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Texture.hpp>
 
+#include <SFML/Graphics/RenderTarget.hpp>
+
 #include <SFML/Window/Context.hpp>
 #include <SFML/Window/Window.hpp>
 
@@ -497,6 +499,34 @@ void Texture::update(const Window& window, Vector2u dest)
     auto& backend = priv::getGraphicsBackend();
     const auto handle = m_texture;
     backend.updateTextureFromFramebuffer(handle, window.getSize(), dest);
+
+    m_hasMipmap = false;
+    backend.setTextureFlipped(handle, true);
+    m_cacheId = TextureImpl::getUniqueId();
+}
+
+
+////////////////////////////////////////////////////////////
+void Texture::update(RenderTarget& renderTarget)
+{
+    update(renderTarget, {0, 0});
+}
+
+
+////////////////////////////////////////////////////////////
+void Texture::update(RenderTarget& renderTarget, Vector2u dest)
+{
+    assert(dest.x + renderTarget.getSize().x <= m_size.x && "Destination x coordinate is outside of texture");
+    assert(dest.y + renderTarget.getSize().y <= m_size.y && "Destination y coordinate is outside of texture");
+
+    if (!m_texture || !renderTarget.setActive(true))
+        return;
+
+    const priv::BackendContextLock lock;
+
+    auto& backend = priv::getGraphicsBackend();
+    const auto handle = m_texture;
+    backend.updateTextureFromFramebuffer(handle, renderTarget.getSize(), dest);
 
     m_hasMipmap = false;
     backend.setTextureFlipped(handle, true);
