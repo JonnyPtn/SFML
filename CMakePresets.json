@@ -3,6 +3,7 @@
   "configurePresets":[
     {
       "name": "dev",
+      "hidden": true,
       "binaryDir": "${sourceDir}/out/${presetName}",
       "installDir": "${sourceDir}/out/${presetName}/install",
       "cacheVariables": {
@@ -29,6 +30,13 @@
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "iOS",
         "SFML_GRAPHICS_BACKEND": "Metal"
+      }
+    },
+    {
+      "name": "windows",
+      "inherits": "dev",
+      "cacheVariables": {
+        "SFML_GRAPHICS_BACKEND": "DX12"
       }
     }
   ]

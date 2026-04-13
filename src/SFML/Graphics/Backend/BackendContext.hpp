@@ -27,7 +27,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#if !defined(SFML_BACKEND_METAL)
+#if !defined(SFML_BACKEND_METAL) && !defined(SFML_BACKEND_DX12)
 #include <SFML/Window/GlResource.hpp>
 #endif
 
@@ -43,14 +43,14 @@ namespace sf::priv
 /// this is a no-op.
 ///
 ////////////////////////////////////////////////////////////
-#if defined(SFML_BACKEND_METAL)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
 
-struct [[maybe_unused]] BackendContextLock
+struct BackendContextLock
 {
-    BackendContextLock()                                   = default;
-    ~BackendContextLock()                                  = default;
-    BackendContextLock(const BackendContextLock&)            = delete;
-    BackendContextLock& operator=(const BackendContextLock&) = delete;
+    BackendContextLock()                                     = default;
+    ~BackendContextLock() {}                                 // Non-trivial to suppress MSVC C4101
+    BackendContextLock(const BackendContextLock&)             = delete;
+    BackendContextLock& operator=(const BackendContextLock&)  = delete;
 };
 
 #else

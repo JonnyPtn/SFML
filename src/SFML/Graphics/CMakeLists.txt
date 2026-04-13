@@ -92,6 +92,11 @@ if(SFML_GRAPHICS_BACKEND STREQUAL "Metal")
         ${SRCROOT}/Backend/Metal/MetalBackend.hpp
         ${SRCROOT}/Backend/Metal/MetalBackend.mm
     )
+elseif(SFML_GRAPHICS_BACKEND STREQUAL "DX12")
+    list(APPEND BACKEND_SRC
+        ${SRCROOT}/Backend/DX12/DX12Backend.hpp
+        ${SRCROOT}/Backend/DX12/DX12Backend.cpp
+    )
 else()
     list(APPEND BACKEND_SRC
         ${SRCROOT}/Backend/OpenGL/GLBackend.hpp
@@ -113,6 +118,9 @@ target_link_libraries(sfml-graphics PUBLIC SFML::Window)
 if(SFML_GRAPHICS_BACKEND STREQUAL "Metal")
     target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_METAL=1)
     target_link_libraries(sfml-graphics PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation")
+elseif(SFML_GRAPHICS_BACKEND STREQUAL "DX12")
+    target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_DX12=1)
+    target_link_libraries(sfml-graphics PRIVATE d3d12 dxgi d3dcompiler)
 else()
     target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_OPENGL=1)
 endif()

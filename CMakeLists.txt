@@ -55,6 +55,8 @@ if(SFML_BUILD_WINDOW)
     # add an option for choosing the graphics backend
     if(SFML_BUILD_GRAPHICS AND (SFML_OS_MACOS OR SFML_OS_IOS))
         sfml_set_option(SFML_GRAPHICS_BACKEND "OpenGL" STRING "Graphics backend: OpenGL or Metal")
+    elseif(SFML_BUILD_GRAPHICS AND SFML_OS_WINDOWS)
+        sfml_set_option(SFML_GRAPHICS_BACKEND "OpenGL" STRING "Graphics backend: OpenGL or DX12")
     else()
         set(SFML_GRAPHICS_BACKEND "OpenGL")
     endif()
