@@ -3,6 +3,7 @@
 ////////////////////////////////////////////////////////////
 
 #include <SFML/Graphics.hpp>
+#include <SFML/Main.hpp>
 
 #include <array>
 #include <iostream>
@@ -13,6 +14,18 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+
+namespace
+{
+std::filesystem::path resourcesDir()
+{
+#ifdef SFML_SYSTEM_IOS
+    return "";
+#else
+    return "resources";
+#endif
+}
+} // namespace
 
 namespace
 {
@@ -279,11 +292,11 @@ private:
 std::optional<Pixelate> tryLoadPixelate()
 {
     sf::Texture texture;
-    if (!texture.loadFromFile("resources/background.jpg"))
+    if (!texture.loadFromFile(resourcesDir() / "background.jpg"))
         return std::nullopt;
 
     sf::Shader shader;
-    if (!shader.loadFromFile("resources/pixelate.frag", sf::Shader::Type::Fragment))
+    if (!shader.loadFromFile(resourcesDir() / "pixelate.frag", sf::Shader::Type::Fragment))
         return std::nullopt;
 
     return std::make_optional<Pixelate>(std::move(texture), std::move(shader));
@@ -292,7 +305,7 @@ std::optional<Pixelate> tryLoadPixelate()
 std::optional<WaveBlur> tryLoadWaveBlur(const sf::Font& font)
 {
     sf::Shader shader;
-    if (!shader.loadFromFile("resources/wave.vert", "resources/blur.frag"))
+    if (!shader.loadFromFile(resourcesDir() / "wave.vert", resourcesDir() / "blur.frag"))
         return std::nullopt;
 
     return std::make_optional<WaveBlur>(font, std::move(shader));
@@ -301,7 +314,7 @@ std::optional<WaveBlur> tryLoadWaveBlur(const sf::Font& font)
 std::optional<StormBlink> tryLoadStormBlink()
 {
     sf::Shader shader;
-    if (!shader.loadFromFile("resources/storm.vert", "resources/blink.frag"))
+    if (!shader.loadFromFile(resourcesDir() / "storm.vert", resourcesDir() / "blink.frag"))
         return std::nullopt;
 
     return std::make_optional<StormBlink>(std::move(shader));
@@ -318,21 +331,21 @@ std::optional<Edge> tryLoadEdge()
 
     // Load the background texture
     sf::Texture backgroundTexture;
-    if (!backgroundTexture.loadFromFile("resources/sfml.png"))
+    if (!backgroundTexture.loadFromFile(resourcesDir() / "sfml.png"))
         return std::nullopt;
 
     backgroundTexture.setSmooth(true);
 
     // Load the entity texture
     sf::Texture entityTexture;
-    if (!entityTexture.loadFromFile("resources/devices.png"))
+    if (!entityTexture.loadFromFile(resourcesDir() / "devices.png"))
         return std::nullopt;
 
     entityTexture.setSmooth(true);
 
     // Load the shader
     sf::Shader shader;
-    if (!shader.loadFromFile("resources/edge.frag", sf::Shader::Type::Fragment))
+    if (!shader.loadFromFile(resourcesDir() / "edge.frag", sf::Shader::Type::Fragment))
         return std::nullopt;
 
     shader.setUniform("sf_texture", sf::Shader::CurrentTexture);
@@ -348,14 +361,14 @@ std::optional<Geometry> tryLoadGeometry()
 
     // Load the logo texture
     sf::Texture logoTexture;
-    if (!logoTexture.loadFromFile("resources/logo.png"))
+    if (!logoTexture.loadFromFile(resourcesDir() / "sfml_logo.png"))
         return std::nullopt;
 
     logoTexture.setSmooth(true);
 
     // Load the shader
     sf::Shader shader;
-    if (!shader.loadFromFile("resources/billboard.vert", "resources/billboard.geom", "resources/billboard.frag"))
+    if (!shader.loadFromFile(resourcesDir() / "billboard.vert", resourcesDir() / "billboard.geom", resourcesDir() / "billboard.frag"))
         return std::nullopt;
 
     shader.setUniform("sf_texture", sf::Shader::CurrentTexture);
@@ -389,7 +402,7 @@ int main()
     window.setVerticalSyncEnabled(true);
 
     // Open the application font
-    const sf::Font font("resources/tuffy.ttf");
+    const sf::Font font(resourcesDir() / "tuffy.ttf");
 
     // Create the effects
     std::optional pixelateEffect   = tryLoadPixelate();
@@ -413,7 +426,7 @@ int main()
     std::size_t current = 0;
 
     // Create the messages background
-    const sf::Texture textBackgroundTexture("resources/text-background.png");
+    const sf::Texture textBackgroundTexture(resourcesDir() / "text-background.png");
     sf::Sprite        textBackground(textBackgroundTexture);
     textBackground.setPosition({0.f, 520.f});
     textBackground.setColor(sf::Color(255, 255, 255, 200));
@@ -516,4 +529,5 @@ int main()
         // Finally, display the rendered frame on screen
         window.display();
     }
+    return EXIT_SUCCESS;
 }

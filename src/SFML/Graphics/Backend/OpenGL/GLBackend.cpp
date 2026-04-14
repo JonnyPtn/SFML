@@ -43,26 +43,13 @@
 #include <cassert>
 #include <cstring>
 
-#ifndef SFML_OPENGL_ES
-
-// Legacy ARB handle casting macros (only used in GLES fallback path)
-#if defined(SFML_SYSTEM_MACOS) || defined(SFML_SYSTEM_IOS)
-#define castToGlHandle(x)   reinterpret_cast<GLEXT_GLhandle>(std::ptrdiff_t{x})
-#define castFromGlHandle(x) static_cast<unsigned int>(reinterpret_cast<std::ptrdiff_t>(x))
-#else
-#define castToGlHandle(x)   (x)
-#define castFromGlHandle(x) (x)
-#endif
-
 ////////////////////////////////////////////////////////////
-// Default GLSL 330 core shaders
+// Default shaders (no #version — preamble injected by compileShader)
 // These replicate the OpenGL fixed-function pipeline behavior:
 //   vertex: position * projection * model, pass through color + texcoords
 //   fragment: vertex color * texture sample (or just vertex color if untextured)
 ////////////////////////////////////////////////////////////
 constexpr const char* defaultVertexShaderSource = R"glsl(
-#version 330 core
-
 layout(location = 0) in vec2 sf_position;
 layout(location = 1) in vec4 sf_color;
 layout(location = 2) in vec2 sf_texCoords;
@@ -84,8 +71,6 @@ void main()
 )glsl";
 
 constexpr const char* defaultFragmentShaderSource = R"glsl(
-#version 330 core
-
 uniform sampler2D sf_texture;
 uniform bool sf_textured;
 
@@ -102,8 +87,6 @@ void main()
         fragColor = v_color;
 }
 )glsl";
-
-#endif // SFML_OPENGL_ES
 
 
 namespace
@@ -455,7 +438,6 @@ void GLBackend::setColorMask(bool enable)
 
 void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count, bool textured)
 {
-#ifndef SFML_OPENGL_ES
     // Note: m_pendingTextured is set by bindTexture(), not here.
     (void)textured;
 
@@ -477,26 +459,12 @@ void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count, bool 
                                   reinterpret_cast<const void*>(12)));
 
     glCheck(glBindBuffer(GL_ARRAY_BUFFER, 0));
-#else
-    (void)count;
-    if (textured)
-        glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-    else
-        glCheck(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
-
-    const auto* data = reinterpret_cast<const std::byte*>(vertices);
-
-    glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), data + 0));
-    glCheck(glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), data + 8));
-    glCheck(glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), data + 12));
-#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::setupVertexBuffer(BackendBufferHandle buffer, bool textured)
 {
-#ifndef SFML_OPENGL_ES
     (void)textured;
 
     glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, static_cast<unsigned int>(buffer)));
@@ -510,38 +478,15 @@ void GLBackend::setupVertexBuffer(BackendBufferHandle buffer, bool textured)
     // texCoords: vec2 at offset 12
     glCheck(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
                                   reinterpret_cast<const void*>(12)));
-#else
-    if (textured)
-        glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-    else
-        glCheck(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
-
-    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, static_cast<unsigned int>(buffer)));
-
-    glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void*>(0)));
-    glCheck(glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), reinterpret_cast<const void*>(8)));
-    glCheck(glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void*>(12)));
-#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::applyTransform(const Transform& projection, const Transform& model)
 {
-#ifndef SFML_OPENGL_ES
     // Store matrices for lazy upload in drawPrimitives
     std::memcpy(m_pendingProjection.data(), projection.getMatrix(), 16 * sizeof(float));
     std::memcpy(m_pendingModel.data(), model.getMatrix(), 16 * sizeof(float));
-#else
-    glCheck(glMatrixMode(GL_PROJECTION));
-    glCheck(glLoadMatrixf(projection.getMatrix()));
-    glCheck(glMatrixMode(GL_MODELVIEW));
-
-    if (model == Transform::Identity)
-        glCheck(glLoadIdentity());
-    else
-        glCheck(glLoadMatrixf(model.getMatrix()));
-#endif
 }
 
 
@@ -551,7 +496,6 @@ void GLBackend::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std:
     static constexpr EnumArray<PrimitiveType, GLenum, 5> modes =
         {GL_POINTS, GL_LINES, GL_LINE_STRIP, GL_TRIANGLES, GL_TRIANGLE_STRIP};
 
-#ifndef SFML_OPENGL_ES
     // Flush pending uniforms to the active program
     // For the default program, use cached locations; for user programs, query by name
     const bool isDefault = (m_activeProgram == m_defaultProgram);
@@ -563,9 +507,9 @@ void GLBackend::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std:
         return glCheck(glGetUniformLocation(m_activeProgram, name));
     };
 
-    const int projLoc    = getLoc("sf_projection", m_defaultUniforms.projection);
-    const int modelLoc   = getLoc("sf_model", m_defaultUniforms.model);
-    const int texMatLoc  = getLoc("sf_textureMatrix", m_defaultUniforms.textureMatrix);
+    const int projLoc     = getLoc("sf_projection", m_defaultUniforms.projection);
+    const int modelLoc    = getLoc("sf_model", m_defaultUniforms.model);
+    const int texMatLoc   = getLoc("sf_textureMatrix", m_defaultUniforms.textureMatrix);
     const int texturedLoc = getLoc("sf_textured", m_defaultUniforms.textured);
 
     if (projLoc != -1)
@@ -576,7 +520,6 @@ void GLBackend::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std:
         glCheck(glUniformMatrix4fv(texMatLoc, 1, GL_FALSE, m_pendingTexMatrix.data()));
     if (texturedLoc != -1)
         glCheck(glUniform1i(texturedLoc, m_pendingTextured ? 1 : 0));
-#endif
 
     glCheck(glDrawArrays(modes[type], static_cast<GLint>(firstVertex), static_cast<GLsizei>(vertexCount)));
 }
@@ -782,21 +725,14 @@ void GLBackend::bindTexture(BackendTextureHandle handle, CoordinateType coordina
             matrix[13] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
         }
 
-#ifndef SFML_OPENGL_ES
         // Store texture matrix for lazy uniform upload in drawPrimitives
         std::memcpy(m_pendingTexMatrix.data(), matrix, 16 * sizeof(float));
         m_pendingTextured = true;
-#else
-        glCheck(glMatrixMode(GL_TEXTURE));
-        glCheck(glLoadMatrixf(matrix));
-        glCheck(glMatrixMode(GL_MODELVIEW));
-#endif
     }
     else
     {
         glCheck(glBindTexture(GL_TEXTURE_2D, 0));
 
-#ifndef SFML_OPENGL_ES
         // Identity texture matrix, not textured
         // clang-format off
         const float identity[16] = {1.f, 0.f, 0.f, 0.f,
@@ -806,11 +742,6 @@ void GLBackend::bindTexture(BackendTextureHandle handle, CoordinateType coordina
         // clang-format on
         std::memcpy(m_pendingTexMatrix.data(), identity, 16 * sizeof(float));
         m_pendingTextured = false;
-#else
-        glCheck(glMatrixMode(GL_TEXTURE));
-        glCheck(glLoadIdentity());
-        glCheck(glMatrixMode(GL_MODELVIEW));
-#endif
     }
 }
 
@@ -878,16 +809,16 @@ Image GLBackend::readbackTexture(BackendTextureHandle handle, Vector2u size)
 
     // OpenGL ES doesn't have glGetTexImage; use FBO readback instead
     GLint previousFrameBuffer = 0;
-    glCheck(glGetIntegerv(GLEXT_GL_FRAMEBUFFER_BINDING, &previousFrameBuffer));
+    glCheck(glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFrameBuffer));
 
     GLuint frameBuffer = 0;
-    glCheck(GLEXT_glGenFramebuffers(1, &frameBuffer));
-    glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, frameBuffer));
-    glCheck(GLEXT_glFramebufferTexture2D(GLEXT_GL_FRAMEBUFFER,
-                                         GLEXT_GL_COLOR_ATTACHMENT0,
-                                         GL_TEXTURE_2D,
-                                         static_cast<GLuint>(handle),
-                                         0));
+    glCheck(glGenFramebuffers(1, &frameBuffer));
+    glCheck(glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer));
+    glCheck(glFramebufferTexture2D(GL_FRAMEBUFFER,
+                                   GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_2D,
+                                   static_cast<GLuint>(handle),
+                                   0));
 
     // On ES, glReadPixels reads from the framebuffer, so we can read just the user size
     image.resize(size);
@@ -899,8 +830,8 @@ Image GLBackend::readbackTexture(BackendTextureHandle handle, Vector2u size)
                          GL_UNSIGNED_BYTE,
                          const_cast<std::uint8_t*>(image.getPixelsPtr())));
 
-    glCheck(GLEXT_glDeleteFramebuffers(1, &frameBuffer));
-    glCheck(GLEXT_glBindFramebuffer(GLEXT_GL_FRAMEBUFFER, static_cast<GLuint>(previousFrameBuffer)));
+    glCheck(glDeleteFramebuffers(1, &frameBuffer));
+    glCheck(glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFrameBuffer)));
 
     // Flip if needed (ES readback is also Y-flipped for FBO textures)
     if (pixelsFlipped)
@@ -1040,21 +971,34 @@ BackendShaderHandle GLBackend::compileShader(std::string_view vertexShaderCode,
                                              std::string_view geometryShaderCode,
                                              std::string_view fragmentShaderCode)
 {
-#ifndef SFML_OPENGL_ES
-
     ensureExtensionsInit();
 
     // Create the program
     const GLuint shaderProgram = glCheck(glCreateProgram());
+
+    // Prepend the appropriate version preamble if the source doesn't already have one
+    auto addPreamble = [](std::string_view source) -> std::string
+    {
+        // If source already has a #version directive, use as-is
+        if (source.find("#version") != std::string_view::npos)
+            return std::string(source);
+
+#ifdef SFML_OPENGL_ES
+        return "#version 300 es\nprecision mediump float;\n" + std::string(source);
+#else
+        return "#version 330 core\n" + std::string(source);
+#endif
+    };
 
     auto compileStage = [&](std::string_view source, GLenum shaderType) -> bool
     {
         if (source.empty())
             return true;
 
-        const GLuint shader = glCheck(glCreateShader(shaderType));
-        const auto*  srcPtr = source.data();
-        const auto   srcLen = static_cast<GLint>(source.size());
+        const std::string fullSource = addPreamble(source);
+        const GLuint      shader     = glCheck(glCreateShader(shaderType));
+        const auto*       srcPtr     = fullSource.data();
+        const auto        srcLen     = static_cast<GLint>(fullSource.size());
         glCheck(glShaderSource(shader, 1, &srcPtr, &srcLen));
         glCheck(glCompileShader(shader));
 
@@ -1080,8 +1024,12 @@ BackendShaderHandle GLBackend::compileShader(std::string_view vertexShaderCode,
     // fragment-only shaders receive the standard v_color/v_texCoords varyings
     if (!compileStage(vertexShaderCode.empty() ? defaultVertexShaderSource : vertexShaderCode, GL_VERTEX_SHADER))
         return 0;
+#ifndef SFML_OPENGL_ES
     if (!compileStage(geometryShaderCode, GL_GEOMETRY_SHADER))
         return 0;
+#else
+    (void)geometryShaderCode; // Geometry shaders not available on GLES
+#endif
     if (!compileStage(fragmentShaderCode, GL_FRAGMENT_SHADER))
         return 0;
 
@@ -1101,34 +1049,20 @@ BackendShaderHandle GLBackend::compileShader(std::string_view vertexShaderCode,
     }
 
     return static_cast<BackendShaderHandle>(shaderProgram);
-
-#else
-
-    (void)vertexShaderCode;
-    (void)geometryShaderCode;
-    (void)fragmentShaderCode;
-    return 0;
-
-#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::destroyShader(BackendShaderHandle handle)
 {
-#ifndef SFML_OPENGL_ES
     if (handle)
         glCheck(glDeleteProgram(static_cast<GLuint>(handle)));
-#else
-    (void)handle;
-#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::bindShader(BackendShaderHandle handle)
 {
-#ifndef SFML_OPENGL_ES
     if (handle)
     {
         const auto program = static_cast<GLuint>(handle);
@@ -1137,26 +1071,17 @@ void GLBackend::bindShader(BackendShaderHandle handle)
     }
     else
     {
-        // Restore the default shader program (required in core profile)
+        // Restore the default shader program
         glCheck(glUseProgram(m_defaultProgram));
         m_activeProgram = m_defaultProgram;
     }
-#else
-    (void)handle;
-#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 int GLBackend::getUniformLocation(BackendShaderHandle handle, const std::string& name)
 {
-#ifndef SFML_OPENGL_ES
     return glCheck(glGetUniformLocation(static_cast<GLuint>(handle), name.c_str()));
-#else
-    (void)handle;
-    (void)name;
-    return -1;
-#endif
 }
 
 
@@ -1166,178 +1091,94 @@ int GLBackend::getUniformLocation(BackendShaderHandle handle, const std::string&
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, float x)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform1f(location, x));
-#else
-    (void)handle;
-    (void)location;
-    (void)x;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Vec2& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform2f(location, v.x, v.y));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Vec3& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform3f(location, v.x, v.y, v.z));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Vec4& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform4f(location, v.x, v.y, v.z, v.w));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, int x)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform1i(location, x));
-#else
-    (void)handle;
-    (void)location;
-    (void)x;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Ivec2& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform2i(location, static_cast<int>(v.x), static_cast<int>(v.y)));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Ivec3& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform3i(location, static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Ivec4& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform4i(location,
                         static_cast<int>(v.x),
                         static_cast<int>(v.y),
                         static_cast<int>(v.z),
                         static_cast<int>(v.w)));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, bool x)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform1i(location, static_cast<int>(x)));
-#else
-    (void)handle;
-    (void)location;
-    (void)x;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Bvec2& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform2i(location, static_cast<int>(v.x), static_cast<int>(v.y)));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Bvec3& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform3i(location, static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Bvec4& v)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform4i(location,
                         static_cast<int>(v.x),
                         static_cast<int>(v.y),
                         static_cast<int>(v.z),
                         static_cast<int>(v.w)));
-#else
-    (void)handle;
-    (void)location;
-    (void)v;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Mat3& m)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniformMatrix3fv(location, 1, GL_FALSE, m.array.data()));
-#else
-    (void)handle;
-    (void)location;
-    (void)m;
-#endif
 }
 
 void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl::Mat4& m)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniformMatrix4fv(location, 1, GL_FALSE, m.array.data()));
-#else
-    (void)handle;
-    (void)location;
-    (void)m;
-#endif
 }
 
 void GLBackend::setUniformTexture(BackendShaderHandle  handle,
@@ -1345,7 +1186,6 @@ void GLBackend::setUniformTexture(BackendShaderHandle  handle,
                                   BackendTextureHandle textureHandle,
                                   int                  textureUnit)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
 
     // Activate the texture unit and bind the texture
@@ -1357,12 +1197,6 @@ void GLBackend::setUniformTexture(BackendShaderHandle  handle,
 
     // Reset active texture unit to 0
     glCheck(glActiveTexture(GL_TEXTURE0));
-#else
-    (void)handle;
-    (void)location;
-    (void)textureHandle;
-    (void)textureUnit;
-#endif
 }
 
 
@@ -1372,80 +1206,38 @@ void GLBackend::setUniformTexture(BackendShaderHandle  handle,
 
 void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const float* data, std::size_t length)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform1fv(location, static_cast<GLsizei>(length), data));
-#else
-    (void)handle;
-    (void)location;
-    (void)data;
-    (void)length;
-#endif
 }
 
 void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const Glsl::Vec2* data, std::size_t length)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform2fv(location, static_cast<GLsizei>(length), &data[0].x));
-#else
-    (void)handle;
-    (void)location;
-    (void)data;
-    (void)length;
-#endif
 }
 
 void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const Glsl::Vec3* data, std::size_t length)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform3fv(location, static_cast<GLsizei>(length), &data[0].x));
-#else
-    (void)handle;
-    (void)location;
-    (void)data;
-    (void)length;
-#endif
 }
 
 void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const Glsl::Vec4* data, std::size_t length)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniform4fv(location, static_cast<GLsizei>(length), &data[0].x));
-#else
-    (void)handle;
-    (void)location;
-    (void)data;
-    (void)length;
-#endif
 }
 
 void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const Glsl::Mat3* data, std::size_t length)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniformMatrix3fv(location, static_cast<GLsizei>(length), GL_FALSE, data[0].array.data()));
-#else
-    (void)handle;
-    (void)location;
-    (void)data;
-    (void)length;
-#endif
 }
 
 void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const Glsl::Mat4* data, std::size_t length)
 {
-#ifndef SFML_OPENGL_ES
     (void)handle;
     glCheck(glUniformMatrix4fv(location, static_cast<GLsizei>(length), GL_FALSE, data[0].array.data()));
-#else
-    (void)handle;
-    (void)location;
-    (void)data;
-    (void)length;
-#endif
 }
 
 
@@ -2061,24 +1853,19 @@ void GLBackend::updateFramebufferTexture(BackendFramebufferHandle handle, Backen
 
 bool GLBackend::isShaderAvailable() const
 {
-    ensureExtensionsInit();
-#ifndef SFML_OPENGL_ES
-    // GL 3.3 core always has shaders
+    // GL 3.3 / GLES 3.0 always have shaders
     return true;
-#else
-    return false;
-#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 bool GLBackend::isGeometryShaderAvailable() const
 {
-    ensureExtensionsInit();
 #ifndef SFML_OPENGL_ES
     // GL 3.2+ has geometry shaders
     return true;
 #else
+    // GLES does not support geometry shaders
     return false;
 #endif
 }
@@ -2087,8 +1874,8 @@ bool GLBackend::isGeometryShaderAvailable() const
 ////////////////////////////////////////////////////////////
 bool GLBackend::isVertexBufferAvailable() const
 {
-    ensureExtensionsInit();
-    return GLEXT_vertex_buffer_object;
+    // GL 3.3 / GLES 3.0 always have VBOs
+    return true;
 }
 
 
@@ -2103,7 +1890,6 @@ bool GLBackend::isNonPowerOfTwoTextureSupported() const
 ////////////////////////////////////////////////////////////
 std::size_t GLBackend::getMaxTextureUnits() const
 {
-#ifndef SFML_OPENGL_ES
     static const GLint maxUnits = []
     {
         GLint value = 0;
@@ -2111,9 +1897,6 @@ std::size_t GLBackend::getMaxTextureUnits() const
         return value;
     }();
     return static_cast<std::size_t>(maxUnits);
-#else
-    return 0;
-#endif
 }
 
 
@@ -2217,7 +2000,6 @@ bool GLBackend::copyBufferFallback(BackendBufferHandle destHandle,
 ////////////////////////////////////////////////////////////
 void GLBackend::prepareUniformUpdate(BackendShaderHandle handle)
 {
-#ifndef SFML_OPENGL_ES
     const auto program = static_cast<GLuint>(handle);
     if (program)
     {
@@ -2227,19 +2009,14 @@ void GLBackend::prepareUniformUpdate(BackendShaderHandle handle)
         if (program != static_cast<GLuint>(m_savedProgram))
             glCheck(glUseProgram(program));
     }
-#else
-    (void)handle;
-#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::finalizeUniformUpdate()
 {
-#ifndef SFML_OPENGL_ES
     glCheck(glUseProgram(m_savedProgram));
     m_savedProgram = 0;
-#endif
 }
 
 
@@ -2248,7 +2025,6 @@ void GLBackend::resetStates()
 {
     ensureExtensionsInit();
 
-#ifndef SFML_OPENGL_ES
     // Create VAO if not yet created
     if (!m_vao)
     {
@@ -2280,7 +2056,7 @@ void GLBackend::resetStates()
     glCheck(glEnableVertexAttribArray(1)); // color
     glCheck(glEnableVertexAttribArray(2)); // texCoords
 
-    // Set default OpenGL states (core-profile safe)
+    // Set default OpenGL states
     glCheck(glDisable(GL_CULL_FACE));
     glCheck(glDisable(GL_STENCIL_TEST));
     glCheck(glDisable(GL_DEPTH_TEST));
@@ -2298,86 +2074,17 @@ void GLBackend::resetStates()
     m_pendingTexMatrix   = m_pendingProjection;
     // clang-format on
     m_pendingTextured = false;
-#else
-    // Make sure texture unit 0 is active
-    if (GLEXT_multitexture)
-    {
-        glCheck(GLEXT_glClientActiveTexture(GLEXT_GL_TEXTURE0));
-        glCheck(GLEXT_glActiveTexture(GLEXT_GL_TEXTURE0));
-    }
-
-    // Define the default OpenGL states (fixed-function for GLES 1.x)
-    glCheck(glDisable(GL_CULL_FACE));
-    glCheck(glDisable(GL_LIGHTING));
-    glCheck(glDisable(GL_STENCIL_TEST));
-    glCheck(glDisable(GL_DEPTH_TEST));
-    glCheck(glDisable(GL_ALPHA_TEST));
-    glCheck(glDisable(GL_SCISSOR_TEST));
-    glCheck(glEnable(GL_TEXTURE_2D));
-    glCheck(glEnable(GL_BLEND));
-    glCheck(glMatrixMode(GL_MODELVIEW));
-    glCheck(glLoadIdentity());
-    glCheck(glEnableClientState(GL_VERTEX_ARRAY));
-    glCheck(glEnableClientState(GL_COLOR_ARRAY));
-    glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-    glCheck(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-#endif
 }
-
-
-#ifndef SFML_OPENGL_ES
 ////////////////////////////////////////////////////////////
 void GLBackend::compileDefaultShader()
 {
-    // Compile vertex shader
-    const GLuint vertShader = glCheck(glCreateShader(GL_VERTEX_SHADER));
-    glCheck(glShaderSource(vertShader, 1, &defaultVertexShaderSource, nullptr));
-    glCheck(glCompileShader(vertShader));
+    // Use compileShader which handles preamble injection
+    m_defaultProgram = static_cast<unsigned int>(
+        compileShader(defaultVertexShaderSource, {}, defaultFragmentShaderSource));
 
-    GLint success = 0;
-    glCheck(glGetShaderiv(vertShader, GL_COMPILE_STATUS, &success));
-    if (success == GL_FALSE)
+    if (!m_defaultProgram)
     {
-        char log[1024];
-        glCheck(glGetShaderInfoLog(vertShader, sizeof(log), nullptr, log));
-        err() << "Failed to compile default vertex shader:" << '\n' << log << std::endl;
-        glCheck(glDeleteShader(vertShader));
-        return;
-    }
-
-    // Compile fragment shader
-    const GLuint fragShader = glCheck(glCreateShader(GL_FRAGMENT_SHADER));
-    glCheck(glShaderSource(fragShader, 1, &defaultFragmentShaderSource, nullptr));
-    glCheck(glCompileShader(fragShader));
-
-    glCheck(glGetShaderiv(fragShader, GL_COMPILE_STATUS, &success));
-    if (success == GL_FALSE)
-    {
-        char log[1024];
-        glCheck(glGetShaderInfoLog(fragShader, sizeof(log), nullptr, log));
-        err() << "Failed to compile default fragment shader:" << '\n' << log << std::endl;
-        glCheck(glDeleteShader(vertShader));
-        glCheck(glDeleteShader(fragShader));
-        return;
-    }
-
-    // Link program
-    m_defaultProgram = glCheck(glCreateProgram());
-    glCheck(glAttachShader(m_defaultProgram, vertShader));
-    glCheck(glAttachShader(m_defaultProgram, fragShader));
-    glCheck(glLinkProgram(m_defaultProgram));
-
-    glCheck(glDeleteShader(vertShader));
-    glCheck(glDeleteShader(fragShader));
-
-    glCheck(glGetProgramiv(m_defaultProgram, GL_LINK_STATUS, &success));
-    if (success == GL_FALSE)
-    {
-        char log[1024];
-        glCheck(glGetProgramInfoLog(m_defaultProgram, sizeof(log), nullptr, log));
-        err() << "Failed to link default shader program:" << '\n' << log << std::endl;
-        glCheck(glDeleteProgram(m_defaultProgram));
-        m_defaultProgram = 0;
+        err() << "Failed to compile default shader program" << std::endl;
         return;
     }
 
@@ -2393,6 +2100,5 @@ void GLBackend::compileDefaultShader()
     if (m_defaultUniforms.texture != -1)
         glCheck(glUniform1i(m_defaultUniforms.texture, 0));
 }
-#endif
 
 } // namespace sf::priv

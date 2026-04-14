@@ -1,4 +1,3 @@
-#version 330 core
 
 uniform sampler2D sf_texture;
 uniform float blur_radius;

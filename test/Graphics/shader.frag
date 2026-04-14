@@ -1,4 +1,3 @@
-#version 330 core
 
 uniform float blink_alpha;
 

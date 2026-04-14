@@ -237,13 +237,11 @@ private:
     ////////////////////////////////////////////////////////////
     unsigned int getValidTextureSize(unsigned int size) const;
 
-#ifndef SFML_OPENGL_ES
     ////////////////////////////////////////////////////////////
     /// \brief Compile the default shader program
     ///
     ////////////////////////////////////////////////////////////
     void compileDefaultShader();
-#endif
 
     ////////////////////////////////////////////////////////////
     // Member data
@@ -252,8 +250,7 @@ private:
     std::unordered_map<BackendFramebufferHandle, std::unique_ptr<GLFramebufferData>> m_framebuffers;
     BackendFramebufferHandle m_nextFramebufferHandle{1};
 
-#ifndef SFML_OPENGL_ES
-    // VAO, streaming VBO, and default shader (GL 3.3 core)
+    // VAO, streaming VBO, and default shader
     unsigned int m_vao{};
     unsigned int m_streamVbo{};
     unsigned int m_defaultProgram{};
@@ -274,8 +271,6 @@ private:
     bool                  m_pendingTextured{};
     unsigned int          m_activeProgram{};
     unsigned int          m_savedProgram{};
-
-#endif
 };
 
 } // namespace sf::priv

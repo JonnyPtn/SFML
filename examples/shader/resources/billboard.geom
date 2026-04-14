@@ -1,4 +1,3 @@
-#version 330 core
 
 // The render target's resolution (used for scaling)
 uniform vec2 resolution;

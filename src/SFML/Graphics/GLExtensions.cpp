@@ -94,11 +94,10 @@ void ensureExtensionsInit()
     {
         initialized = true;
 
-#ifdef SFML_OPENGL_ES
-        gladLoadGLES1(Context::getFunction);
-#else
+        // gladLoadGL loads all function pointers via the callback.
+        // On GLES 3.0, the same core function names exist (glGenFramebuffers,
+        // glCreateShader, etc.) so they are loaded correctly.
         gladLoadGL(Context::getFunction);
-#endif
         // Some GL implementations don't fully follow extension specifications
         // and advertise support for extensions although not providing the
         // entry points specified for the corresponding extension.

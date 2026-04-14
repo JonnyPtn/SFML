@@ -99,10 +99,10 @@ EaglContext::EaglContext(EaglContext* shared) : m_context(nil)
 
     // Create the context
     if (shared)
-        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES1
+        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3
                                           sharegroup:[shared->m_context sharegroup]];
     else
-        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES1];
+        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
 }
 
 
@@ -119,13 +119,19 @@ EaglContext::EaglContext(EaglContext* shared, const ContextSettings& settings, c
 
 
 ////////////////////////////////////////////////////////////
-EaglContext::EaglContext(EaglContext* /* shared */, const ContextSettings& /* settings */, Vector2u /* size */) :
+EaglContext::EaglContext(EaglContext* shared, const ContextSettings& settings, Vector2u /* size */) :
     m_context(nil)
 {
     ensureInit();
 
-    // This constructor should never be used by implementation
-    err() << "Calling bad EaglContext constructor, please contact your developer :)" << std::endl;
+    m_settings = settings;
+
+    // Create an offscreen context (for resource sharing / extension loading)
+    if (shared)
+        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3
+                                          sharegroup:[shared->m_context sharegroup]];
+    else
+        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
 }
 
 
@@ -163,7 +169,7 @@ GlFunctionPointer EaglContext::getFunction(const char* name)
 {
     static void* module = nullptr;
 
-    static constexpr std::array libs = {"libGLESv1_CM.dylib",
+    static constexpr std::array libs = {"libGLESv2.dylib",
                                         "/System/Library/Frameworks/OpenGLES.framework/OpenGLES",
                                         "OpenGLES.framework/OpenGLES"};
 
@@ -291,12 +297,12 @@ void EaglContext::createContext(EaglContext*           shared,
     {
         [EAGLContext setCurrentContext:nil];
 
-        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES1
+        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3
                                           sharegroup:[shared->m_context sharegroup]];
     }
     else
     {
-        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES1];
+        m_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
     }
 
     // Activate it
