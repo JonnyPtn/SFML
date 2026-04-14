@@ -1,9 +1,14 @@
-uniform sampler2D texture;
+#version 330 core
+
 uniform float blink_alpha;
+
+in vec4 v_color;
+
+out vec4 fragColor;
 
 void main()
 {
-    vec4 pixel = gl_Color;
+    vec4 pixel = v_color;
     pixel.a = blink_alpha;
-    gl_FragColor = pixel;
+    fragColor = pixel;
 }

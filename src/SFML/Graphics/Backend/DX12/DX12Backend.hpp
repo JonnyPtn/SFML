@@ -184,8 +184,6 @@ public:
     ////////////////////////////////////////////////////////////
 
     void         flushPipeline() override;
-    void         pushRenderStates() override;
-    void         popRenderStates() override;
     void         bindBuffer(BackendBufferHandle buffer) override;
     unsigned int getDefaultFramebufferBinding() const override;
     bool         isFramebufferAvailable() const override;

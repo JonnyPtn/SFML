@@ -1239,20 +1239,6 @@ void MetalBackend::flushPipeline()
 
 
 ////////////////////////////////////////////////////////////
-void MetalBackend::pushRenderStates()
-{
-    // No-op for Metal (state is not global like OpenGL)
-}
-
-
-////////////////////////////////////////////////////////////
-void MetalBackend::popRenderStates()
-{
-    // No-op for Metal (state is not global like OpenGL)
-}
-
-
-////////////////////////////////////////////////////////////
 void MetalBackend::bindBuffer(BackendBufferHandle buffer)
 {
     auto it = m_impl->buffers.find(buffer);

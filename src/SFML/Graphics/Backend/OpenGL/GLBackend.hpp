@@ -31,6 +31,7 @@
 
 #include <SFML/Window/GlResource.hpp>
 
+#include <array>
 #include <memory>
 #include <unordered_map>
 
@@ -189,8 +190,6 @@ public:
     ////////////////////////////////////////////////////////////
 
     void         flushPipeline() override;
-    void         pushRenderStates() override;
-    void         popRenderStates() override;
     void         bindBuffer(BackendBufferHandle buffer) override;
     unsigned int getDefaultFramebufferBinding() const override;
     bool         isFramebufferAvailable() const override;
@@ -238,14 +237,44 @@ private:
     ////////////////////////////////////////////////////////////
     unsigned int getValidTextureSize(unsigned int size) const;
 
+#ifndef SFML_OPENGL_ES
+    ////////////////////////////////////////////////////////////
+    /// \brief Compile the default shader program
+    ///
+    ////////////////////////////////////////////////////////////
+    void compileDefaultShader();
+#endif
+
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
     std::unordered_map<BackendTextureHandle, TextureMetadata>                        m_textureMetadata;
     std::unordered_map<BackendFramebufferHandle, std::unique_ptr<GLFramebufferData>> m_framebuffers;
     BackendFramebufferHandle m_nextFramebufferHandle{1};
+
 #ifndef SFML_OPENGL_ES
-    unsigned int             m_savedProgram{};
+    // VAO, streaming VBO, and default shader (GL 3.3 core)
+    unsigned int m_vao{};
+    unsigned int m_streamVbo{};
+    unsigned int m_defaultProgram{};
+
+    struct DefaultUniformLocations
+    {
+        int projection{-1};
+        int model{-1};
+        int textureMatrix{-1};
+        int textured{-1};
+        int texture{-1};
+    } m_defaultUniforms;
+
+    // Pending uniform state (set in apply*, flushed in drawPrimitives)
+    std::array<float, 16> m_pendingProjection{};
+    std::array<float, 16> m_pendingModel{};
+    std::array<float, 16> m_pendingTexMatrix{};
+    bool                  m_pendingTextured{};
+    unsigned int          m_activeProgram{};
+    unsigned int          m_savedProgram{};
+
 #endif
 };
 

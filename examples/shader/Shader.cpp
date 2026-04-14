@@ -39,7 +39,7 @@ public:
         m_texture(std::move(texture)),
         m_shader(std::move(shader))
     {
-        m_shader.setUniform("texture", sf::Shader::CurrentTexture);
+        m_shader.setUniform("sf_texture", sf::Shader::CurrentTexture);
     }
 
     void update(float /* time */, float x, float y) override
@@ -335,7 +335,7 @@ std::optional<Edge> tryLoadEdge()
     if (!shader.loadFromFile("resources/edge.frag", sf::Shader::Type::Fragment))
         return std::nullopt;
 
-    shader.setUniform("texture", sf::Shader::CurrentTexture);
+    shader.setUniform("sf_texture", sf::Shader::CurrentTexture);
 
     return std::make_optional<Edge>(std::move(surface), std::move(backgroundTexture), std::move(entityTexture), std::move(shader));
 }
@@ -358,7 +358,7 @@ std::optional<Geometry> tryLoadGeometry()
     if (!shader.loadFromFile("resources/billboard.vert", "resources/billboard.geom", "resources/billboard.frag"))
         return std::nullopt;
 
-    shader.setUniform("texture", sf::Shader::CurrentTexture);
+    shader.setUniform("sf_texture", sf::Shader::CurrentTexture);
 
     // Set the render resolution (used for proper scaling)
     shader.setUniform("resolution", sf::Vector2f(800, 600));

@@ -1,11 +1,12 @@
-#version 150
+#version 330 core
 
-uniform sampler2D texture;
+uniform sampler2D sf_texture;
 
 in vec2 tex_coord;
 
+out vec4 fragColor;
+
 void main()
 {
-    // Read and apply a color from the texture
-    gl_FragColor = texture2D(texture, tex_coord);
+    fragColor = texture(sf_texture, tex_coord);
 }

@@ -383,69 +383,10 @@ public:
     [[nodiscard]] virtual bool setActive(bool active = true);
 
     ////////////////////////////////////////////////////////////
-    /// \brief Save the current OpenGL render states and matrices
+    /// \brief Reset the internal render states so that the target is ready for drawing
     ///
-    /// This function can be used when you mix SFML drawing
-    /// and direct OpenGL rendering. Combined with popGLStates,
-    /// it ensures that:
-    /// \li SFML's internal states are not messed up by your OpenGL code
-    /// \li your OpenGL states are not modified by a call to a SFML function
-    ///
-    /// More specifically, it must be used around code that
-    /// calls `draw` functions. Example:
-    /// \code
-    /// // OpenGL code here...
-    /// window.pushGLStates();
-    /// window.draw(...);
-    /// window.draw(...);
-    /// window.popGLStates();
-    /// // OpenGL code here...
-    /// \endcode
-    ///
-    /// Note that this function is quite expensive: it saves all the
-    /// possible OpenGL states and matrices, even the ones you
-    /// don't care about. Therefore it should be used wisely.
-    /// It is provided for convenience, but the best results will
-    /// be achieved if you handle OpenGL states yourself (because
-    /// you know which states have really changed, and need to be
-    /// saved and restored). Take a look at the resetGLStates
-    /// function if you do so.
-    ///
-    /// \see `popGLStates`
-    ///
-    ////////////////////////////////////////////////////////////
-    void pushGLStates();
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Restore the previously saved OpenGL render states and matrices
-    ///
-    /// See the description of `pushGLStates` to get a detailed
-    /// description of these functions.
-    ///
-    /// \see `pushGLStates`
-    ///
-    ////////////////////////////////////////////////////////////
-    void popGLStates();
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Reset the internal OpenGL states so that the target is ready for drawing
-    ///
-    /// This function can be used when you mix SFML drawing
-    /// and direct OpenGL rendering, if you choose not to use
-    /// `pushGLStates`/`popGLStates`. It makes sure that all OpenGL
-    /// states needed by SFML are set, so that subsequent `draw()`
-    /// calls will work as expected.
-    ///
-    /// Example:
-    /// \code
-    /// // OpenGL code here...
-    /// glPushAttrib(...);
-    /// window.resetGLStates();
-    /// window.draw(...);
-    /// window.draw(...);
-    /// glPopAttrib(...);
-    /// // OpenGL code here...
-    /// \endcode
+    /// This function invalidates the internal state cache, ensuring
+    /// that all render states are re-applied on the next `draw()` call.
     ///
     ////////////////////////////////////////////////////////////
     void resetGLStates();
@@ -556,7 +497,7 @@ private:
         StencilMode           lastStencilMode;         //!< Cached stencil
         std::uint64_t         lastTextureId{};         //!< Cached texture
         CoordinateType        lastCoordinateType{};    //!< Texture coordinate type
-        bool                  texCoordsArrayEnabled{}; //!< Is `GL_TEXTURE_COORD_ARRAY` client state enabled?
+        bool                  textured{};             //!< Was the last draw textured?
         bool                  useVertexCache{};        //!< Did we previously use the vertex cache?
         std::array<Vertex, 4> vertexCache{};           //!< Pre-transformed vertices cache
     };
@@ -589,17 +530,11 @@ private:
 /// documentation of `sf::View` for more details and sample pieces of
 /// code about this class.
 ///
-/// On top of that, render targets are still able to render direct
-/// OpenGL stuff. It is even possible to mix together OpenGL calls
-/// and regular SFML drawing commands. When doing so, make sure that
-/// OpenGL states are not messed up by calling the
-/// `pushGLStates`/`popGLStates` functions.
-///
 /// While render targets are moveable, it is not valid to move them
 /// between threads. This will cause your program to crash. The
-/// problem boils down to OpenGL being limited with regard to how it
-/// works in multithreaded environments. Please ensure you only move
-/// render targets within the same thread.
+/// problem boils down to the graphics backend being limited with
+/// regard to how it works in multithreaded environments. Please
+/// ensure you only move render targets within the same thread.
 ///
 /// \see `sf::RenderWindow`, `sf::RenderTexture`, `sf::View`
 ///

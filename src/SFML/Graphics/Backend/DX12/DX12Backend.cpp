@@ -1649,20 +1649,6 @@ void DX12Backend::flushPipeline()
 
 
 ////////////////////////////////////////////////////////////
-void DX12Backend::pushRenderStates()
-{
-    // No-op for DX12 (state is not global like OpenGL)
-}
-
-
-////////////////////////////////////////////////////////////
-void DX12Backend::popRenderStates()
-{
-    // No-op for DX12 (state is not global like OpenGL)
-}
-
-
-////////////////////////////////////////////////////////////
 void DX12Backend::bindBuffer(BackendBufferHandle buffer)
 {
     auto it = m_impl->buffers.find(buffer);

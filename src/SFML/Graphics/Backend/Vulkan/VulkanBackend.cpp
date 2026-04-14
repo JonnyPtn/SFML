@@ -2243,20 +2243,6 @@ void VulkanBackend::flushPipeline()
 
 
 ////////////////////////////////////////////////////////////
-void VulkanBackend::pushRenderStates()
-{
-    // No-op for Vulkan (state is not global like OpenGL)
-}
-
-
-////////////////////////////////////////////////////////////
-void VulkanBackend::popRenderStates()
-{
-    // No-op for Vulkan (state is not global like OpenGL)
-}
-
-
-////////////////////////////////////////////////////////////
 void VulkanBackend::bindBuffer(BackendBufferHandle buffer)
 {
     auto it = m_impl->bufferInfos.find(buffer);

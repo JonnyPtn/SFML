@@ -265,7 +265,7 @@ void RenderTarget::draw(const Vertex* vertices, std::size_t vertexCount, Primiti
         // If we switch between non-cache and cache mode or change texture coord state,
         // we need to set up the pointers to the vertices' components
         if (!m_cache.enable || !useVertexCache || !m_cache.useVertexCache ||
-            (enableTexCoordsArray != m_cache.texCoordsArrayEnabled))
+            (enableTexCoordsArray != m_cache.textured))
         {
             const Vertex* vertexData = useVertexCache ? m_cache.vertexCache.data() : vertices;
             backend.setupVertexData(vertexData, vertexCount, enableTexCoordsArray);
@@ -276,7 +276,7 @@ void RenderTarget::draw(const Vertex* vertices, std::size_t vertexCount, Primiti
 
         // Update the cache
         m_cache.useVertexCache        = useVertexCache;
-        m_cache.texCoordsArrayEnabled = enableTexCoordsArray;
+        m_cache.textured = enableTexCoordsArray;
     }
 }
 
@@ -327,7 +327,7 @@ void RenderTarget::draw(const VertexBuffer& vertexBuffer, std::size_t firstVerte
 
         // Update the cache
         m_cache.useVertexCache        = false;
-        m_cache.texCoordsArrayEnabled = true;
+        m_cache.textured = true;
     }
 }
 
@@ -381,24 +381,6 @@ bool RenderTarget::setActive(bool active)
 
 
 ////////////////////////////////////////////////////////////
-void RenderTarget::pushGLStates()
-{
-    if (RenderTargetImpl::isActive(m_id) || setActive(true))
-        priv::getGraphicsBackend().pushRenderStates();
-
-    resetGLStates();
-}
-
-
-////////////////////////////////////////////////////////////
-void RenderTarget::popGLStates()
-{
-    if (RenderTargetImpl::isActive(m_id) || setActive(true))
-        priv::getGraphicsBackend().popRenderStates();
-}
-
-
-////////////////////////////////////////////////////////////
 void RenderTarget::resetGLStates()
 {
     auto& backend = priv::getGraphicsBackend();
@@ -435,7 +417,7 @@ void RenderTarget::resetGLStates()
         if (vertexBufferAvailable)
             VertexBuffer::bind(nullptr);
 
-        m_cache.texCoordsArrayEnabled = true;
+        m_cache.textured = true;
 
         m_cache.useVertexCache = false;
 

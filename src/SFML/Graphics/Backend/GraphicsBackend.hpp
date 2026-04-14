@@ -636,20 +636,6 @@ public:
     virtual void flushPipeline() = 0;
 
     ////////////////////////////////////////////////////////////
-    /// \brief Save the entire graphics state
-    ///
-    /// Used when mixing SFML rendering with direct backend API usage.
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void pushRenderStates() = 0;
-
-    ////////////////////////////////////////////////////////////
-    /// \brief Restore a previously saved graphics state
-    ///
-    ////////////////////////////////////////////////////////////
-    virtual void popRenderStates() = 0;
-
-    ////////////////////////////////////////////////////////////
     /// \brief Bind a vertex buffer object (without setting vertex pointers)
     ///
     /// \param buffer Backend buffer handle (0 to unbind)

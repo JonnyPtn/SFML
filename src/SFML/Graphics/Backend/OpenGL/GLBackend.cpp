@@ -45,17 +45,63 @@
 
 #ifndef SFML_OPENGL_ES
 
+// Legacy ARB handle casting macros (only used in GLES fallback path)
 #if defined(SFML_SYSTEM_MACOS) || defined(SFML_SYSTEM_IOS)
-
 #define castToGlHandle(x)   reinterpret_cast<GLEXT_GLhandle>(std::ptrdiff_t{x})
 #define castFromGlHandle(x) static_cast<unsigned int>(reinterpret_cast<std::ptrdiff_t>(x))
-
 #else
-
 #define castToGlHandle(x)   (x)
 #define castFromGlHandle(x) (x)
-
 #endif
+
+////////////////////////////////////////////////////////////
+// Default GLSL 330 core shaders
+// These replicate the OpenGL fixed-function pipeline behavior:
+//   vertex: position * projection * model, pass through color + texcoords
+//   fragment: vertex color * texture sample (or just vertex color if untextured)
+////////////////////////////////////////////////////////////
+constexpr const char* defaultVertexShaderSource = R"glsl(
+#version 330 core
+
+layout(location = 0) in vec2 sf_position;
+layout(location = 1) in vec4 sf_color;
+layout(location = 2) in vec2 sf_texCoords;
+
+uniform mat4 sf_projection;
+uniform mat4 sf_model;
+uniform mat4 sf_textureMatrix;
+
+out vec4 v_color;
+out vec2 v_texCoords;
+
+void main()
+{
+    gl_Position = sf_projection * sf_model * vec4(sf_position, 0.0, 1.0);
+    v_color     = sf_color;
+    vec4 tc     = sf_textureMatrix * vec4(sf_texCoords, 0.0, 1.0);
+    v_texCoords = tc.xy;
+}
+)glsl";
+
+constexpr const char* defaultFragmentShaderSource = R"glsl(
+#version 330 core
+
+uniform sampler2D sf_texture;
+uniform bool sf_textured;
+
+in vec4 v_color;
+in vec2 v_texCoords;
+
+out vec4 fragColor;
+
+void main()
+{
+    if (sf_textured)
+        fragColor = v_color * texture(sf_texture, v_texCoords);
+    else
+        fragColor = v_color;
+}
+)glsl";
 
 #endif // SFML_OPENGL_ES
 
@@ -247,7 +293,13 @@ GLBackend::GLBackend() = default;
 
 
 ////////////////////////////////////////////////////////////
-GLBackend::~GLBackend() = default;
+GLBackend::~GLBackend()
+{
+    // GL objects (m_defaultProgram, m_streamVbo, m_vao) are intentionally
+    // not deleted here. As a function-local static, this destructor runs
+    // during atexit after all GL contexts have been destroyed. The driver
+    // cleans up remaining objects when the context is torn down.
+}
 
 
 ////////////////////////////////////////////////////////////
@@ -403,8 +455,30 @@ void GLBackend::setColorMask(bool enable)
 
 void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count, bool textured)
 {
-    (void)count;
+#ifndef SFML_OPENGL_ES
+    // Note: m_pendingTextured is set by bindTexture(), not here.
+    (void)textured;
 
+    // Upload vertex data to streaming VBO (core profile requires a buffer)
+    glCheck(glBindBuffer(GL_ARRAY_BUFFER, m_streamVbo));
+    glCheck(glBufferData(GL_ARRAY_BUFFER,
+                         static_cast<GLsizeiptr>(sizeof(Vertex) * count),
+                         vertices,
+                         GL_STREAM_DRAW));
+
+    // position: vec2 at offset 0
+    glCheck(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                                  reinterpret_cast<const void*>(0)));
+    // color: 4 unsigned bytes at offset 8, normalized to [0,1]
+    glCheck(glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex),
+                                  reinterpret_cast<const void*>(8)));
+    // texCoords: vec2 at offset 12
+    glCheck(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                                  reinterpret_cast<const void*>(12)));
+
+    glCheck(glBindBuffer(GL_ARRAY_BUFFER, 0));
+#else
+    (void)count;
     if (textured)
         glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
     else
@@ -415,12 +489,28 @@ void GLBackend::setupVertexData(const Vertex* vertices, std::size_t count, bool 
     glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), data + 0));
     glCheck(glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), data + 8));
     glCheck(glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), data + 12));
+#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::setupVertexBuffer(BackendBufferHandle buffer, bool textured)
 {
+#ifndef SFML_OPENGL_ES
+    (void)textured;
+
+    glCheck(GLEXT_glBindBuffer(GLEXT_GL_ARRAY_BUFFER, static_cast<unsigned int>(buffer)));
+
+    // position: vec2 at offset 0
+    glCheck(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                                  reinterpret_cast<const void*>(0)));
+    // color: 4 unsigned bytes at offset 8, normalized to [0,1]
+    glCheck(glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex),
+                                  reinterpret_cast<const void*>(8)));
+    // texCoords: vec2 at offset 12
+    glCheck(glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                                  reinterpret_cast<const void*>(12)));
+#else
     if (textured)
         glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
     else
@@ -431,12 +521,18 @@ void GLBackend::setupVertexBuffer(BackendBufferHandle buffer, bool textured)
     glCheck(glVertexPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void*>(0)));
     glCheck(glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), reinterpret_cast<const void*>(8)));
     glCheck(glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), reinterpret_cast<const void*>(12)));
+#endif
 }
 
 
 ////////////////////////////////////////////////////////////
 void GLBackend::applyTransform(const Transform& projection, const Transform& model)
 {
+#ifndef SFML_OPENGL_ES
+    // Store matrices for lazy upload in drawPrimitives
+    std::memcpy(m_pendingProjection.data(), projection.getMatrix(), 16 * sizeof(float));
+    std::memcpy(m_pendingModel.data(), model.getMatrix(), 16 * sizeof(float));
+#else
     glCheck(glMatrixMode(GL_PROJECTION));
     glCheck(glLoadMatrixf(projection.getMatrix()));
     glCheck(glMatrixMode(GL_MODELVIEW));
@@ -445,6 +541,7 @@ void GLBackend::applyTransform(const Transform& projection, const Transform& mod
         glCheck(glLoadIdentity());
     else
         glCheck(glLoadMatrixf(model.getMatrix()));
+#endif
 }
 
 
@@ -453,6 +550,33 @@ void GLBackend::drawPrimitives(PrimitiveType type, std::size_t firstVertex, std:
 {
     static constexpr EnumArray<PrimitiveType, GLenum, 5> modes =
         {GL_POINTS, GL_LINES, GL_LINE_STRIP, GL_TRIANGLES, GL_TRIANGLE_STRIP};
+
+#ifndef SFML_OPENGL_ES
+    // Flush pending uniforms to the active program
+    // For the default program, use cached locations; for user programs, query by name
+    const bool isDefault = (m_activeProgram == m_defaultProgram);
+
+    auto getLoc = [&](const char* name, int cachedLoc) -> int
+    {
+        if (isDefault)
+            return cachedLoc;
+        return glCheck(glGetUniformLocation(m_activeProgram, name));
+    };
+
+    const int projLoc    = getLoc("sf_projection", m_defaultUniforms.projection);
+    const int modelLoc   = getLoc("sf_model", m_defaultUniforms.model);
+    const int texMatLoc  = getLoc("sf_textureMatrix", m_defaultUniforms.textureMatrix);
+    const int texturedLoc = getLoc("sf_textured", m_defaultUniforms.textured);
+
+    if (projLoc != -1)
+        glCheck(glUniformMatrix4fv(projLoc, 1, GL_FALSE, m_pendingProjection.data()));
+    if (modelLoc != -1)
+        glCheck(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, m_pendingModel.data()));
+    if (texMatLoc != -1)
+        glCheck(glUniformMatrix4fv(texMatLoc, 1, GL_FALSE, m_pendingTexMatrix.data()));
+    if (texturedLoc != -1)
+        glCheck(glUniform1i(texturedLoc, m_pendingTextured ? 1 : 0));
+#endif
 
     glCheck(glDrawArrays(modes[type], static_cast<GLint>(firstVertex), static_cast<GLsizei>(vertexCount)));
 }
@@ -622,62 +746,71 @@ void GLBackend::bindTexture(BackendTextureHandle handle, CoordinateType coordina
     if (handle)
     {
         // Look up per-texture metadata
-        const auto   it          = m_textureMetadata.find(handle);
+        const auto     it         = m_textureMetadata.find(handle);
         const Vector2u textureSize = (it != m_textureMetadata.end()) ? it->second.userSize : Vector2u{};
         const Vector2u actualSize  = (it != m_textureMetadata.end()) ? it->second.actualSize : Vector2u{};
-        const bool   flipped     = (it != m_textureMetadata.end()) && it->second.pixelsFlipped;
+        const bool     flipped     = (it != m_textureMetadata.end()) && it->second.pixelsFlipped;
 
         glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(handle)));
 
-        // Check if we need a special texture matrix
-        if ((coordinateType == CoordinateType::Pixels) || flipped ||
-            ((coordinateType == CoordinateType::Normalized) && (textureSize != actualSize)))
+        // Compute texture matrix
+        // clang-format off
+        float matrix[16] = {1.f, 0.f, 0.f, 0.f,
+                            0.f, 1.f, 0.f, 0.f,
+                            0.f, 0.f, 1.f, 0.f,
+                            0.f, 0.f, 0.f, 1.f};
+        // clang-format on
+
+        // Pixel coordinates: scale [0..size] to [0..1]
+        if (coordinateType == CoordinateType::Pixels)
         {
-            // clang-format off
-            float matrix[16] = {1.f, 0.f, 0.f, 0.f,
-                                0.f, 1.f, 0.f, 0.f,
-                                0.f, 0.f, 1.f, 0.f,
-                                0.f, 0.f, 0.f, 1.f};
-            // clang-format on
-
-            // Pixel coordinates: scale [0..size] to [0..1]
-            if (coordinateType == CoordinateType::Pixels)
-            {
-                matrix[0] = 1.f / static_cast<float>(actualSize.x);
-                matrix[5] = 1.f / static_cast<float>(actualSize.y);
-            }
-
-            // Normalized coords with NPOT padding: scale to actual/padded ratio
-            if ((coordinateType == CoordinateType::Normalized) && (textureSize != actualSize))
-            {
-                matrix[0] = static_cast<float>(textureSize.x) / static_cast<float>(actualSize.x);
-                matrix[5] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
-            }
-
-            // Flip Y axis if pixels are flipped
-            if (flipped)
-            {
-                matrix[5]  = -matrix[5];
-                matrix[13] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
-            }
-
-            glCheck(glMatrixMode(GL_TEXTURE));
-            glCheck(glLoadMatrixf(matrix));
-        }
-        else
-        {
-            glCheck(glMatrixMode(GL_TEXTURE));
-            glCheck(glLoadIdentity());
+            matrix[0] = 1.f / static_cast<float>(actualSize.x);
+            matrix[5] = 1.f / static_cast<float>(actualSize.y);
         }
 
+        // Normalized coords with NPOT padding: scale to actual/padded ratio
+        if ((coordinateType == CoordinateType::Normalized) && (textureSize != actualSize))
+        {
+            matrix[0] = static_cast<float>(textureSize.x) / static_cast<float>(actualSize.x);
+            matrix[5] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
+        }
+
+        // Flip Y axis if pixels are flipped (render-to-texture)
+        if (flipped)
+        {
+            matrix[5]  = -matrix[5];
+            matrix[13] = static_cast<float>(textureSize.y) / static_cast<float>(actualSize.y);
+        }
+
+#ifndef SFML_OPENGL_ES
+        // Store texture matrix for lazy uniform upload in drawPrimitives
+        std::memcpy(m_pendingTexMatrix.data(), matrix, 16 * sizeof(float));
+        m_pendingTextured = true;
+#else
+        glCheck(glMatrixMode(GL_TEXTURE));
+        glCheck(glLoadMatrixf(matrix));
         glCheck(glMatrixMode(GL_MODELVIEW));
+#endif
     }
     else
     {
         glCheck(glBindTexture(GL_TEXTURE_2D, 0));
+
+#ifndef SFML_OPENGL_ES
+        // Identity texture matrix, not textured
+        // clang-format off
+        const float identity[16] = {1.f, 0.f, 0.f, 0.f,
+                                    0.f, 1.f, 0.f, 0.f,
+                                    0.f, 0.f, 1.f, 0.f,
+                                    0.f, 0.f, 0.f, 1.f};
+        // clang-format on
+        std::memcpy(m_pendingTexMatrix.data(), identity, 16 * sizeof(float));
+        m_pendingTextured = false;
+#else
         glCheck(glMatrixMode(GL_TEXTURE));
         glCheck(glLoadIdentity());
         glCheck(glMatrixMode(GL_MODELVIEW));
+#endif
     }
 }
 
@@ -912,60 +1045,62 @@ BackendShaderHandle GLBackend::compileShader(std::string_view vertexShaderCode,
     ensureExtensionsInit();
 
     // Create the program
-    const GLEXT_GLhandle shaderProgram = glCheck(GLEXT_glCreateProgramObject());
+    const GLuint shaderProgram = glCheck(glCreateProgram());
 
     auto compileStage = [&](std::string_view source, GLenum shaderType) -> bool
     {
         if (source.empty())
             return true;
 
-        const GLEXT_GLhandle shader  = glCheck(GLEXT_glCreateShaderObject(shaderType));
-        const auto*          srcPtr  = source.data();
-        const auto           srcLen  = static_cast<GLint>(source.size());
-        glCheck(GLEXT_glShaderSource(shader, 1, &srcPtr, &srcLen));
-        glCheck(GLEXT_glCompileShader(shader));
+        const GLuint shader = glCheck(glCreateShader(shaderType));
+        const auto*  srcPtr = source.data();
+        const auto   srcLen = static_cast<GLint>(source.size());
+        glCheck(glShaderSource(shader, 1, &srcPtr, &srcLen));
+        glCheck(glCompileShader(shader));
 
         GLint success = 0;
-        glCheck(GLEXT_glGetObjectParameteriv(shader, GLEXT_GL_OBJECT_COMPILE_STATUS, &success));
+        glCheck(glGetShaderiv(shader, GL_COMPILE_STATUS, &success));
 
         if (success == GL_FALSE)
         {
             char log[1024];
-            glCheck(GLEXT_glGetInfoLog(shader, sizeof(log), nullptr, log));
+            glCheck(glGetShaderInfoLog(shader, sizeof(log), nullptr, log));
             err() << "Failed to compile shader:" << '\n' << log << std::endl;
-            glCheck(GLEXT_glDeleteObject(shader));
-            glCheck(GLEXT_glDeleteObject(shaderProgram));
+            glCheck(glDeleteShader(shader));
+            glCheck(glDeleteProgram(shaderProgram));
             return false;
         }
 
-        glCheck(GLEXT_glAttachObject(shaderProgram, shader));
-        glCheck(GLEXT_glDeleteObject(shader));
+        glCheck(glAttachShader(shaderProgram, shader));
+        glCheck(glDeleteShader(shader));
         return true;
     };
 
-    if (!compileStage(vertexShaderCode, GLEXT_GL_VERTEX_SHADER))
+    // If no vertex shader is provided, use the default so that
+    // fragment-only shaders receive the standard v_color/v_texCoords varyings
+    if (!compileStage(vertexShaderCode.empty() ? defaultVertexShaderSource : vertexShaderCode, GL_VERTEX_SHADER))
         return 0;
-    if (!compileStage(geometryShaderCode, GLEXT_GL_GEOMETRY_SHADER))
+    if (!compileStage(geometryShaderCode, GL_GEOMETRY_SHADER))
         return 0;
-    if (!compileStage(fragmentShaderCode, GLEXT_GL_FRAGMENT_SHADER))
+    if (!compileStage(fragmentShaderCode, GL_FRAGMENT_SHADER))
         return 0;
 
     // Link the program
-    glCheck(GLEXT_glLinkProgram(shaderProgram));
+    glCheck(glLinkProgram(shaderProgram));
 
     GLint success = 0;
-    glCheck(GLEXT_glGetObjectParameteriv(shaderProgram, GLEXT_GL_OBJECT_LINK_STATUS, &success));
+    glCheck(glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success));
 
     if (success == GL_FALSE)
     {
         char log[1024];
-        glCheck(GLEXT_glGetInfoLog(shaderProgram, sizeof(log), nullptr, log));
+        glCheck(glGetProgramInfoLog(shaderProgram, sizeof(log), nullptr, log));
         err() << "Failed to link shader:" << '\n' << log << std::endl;
-        glCheck(GLEXT_glDeleteObject(shaderProgram));
+        glCheck(glDeleteProgram(shaderProgram));
         return 0;
     }
 
-    return static_cast<BackendShaderHandle>(castFromGlHandle(shaderProgram));
+    return static_cast<BackendShaderHandle>(shaderProgram);
 
 #else
 
@@ -983,7 +1118,7 @@ void GLBackend::destroyShader(BackendShaderHandle handle)
 {
 #ifndef SFML_OPENGL_ES
     if (handle)
-        glCheck(GLEXT_glDeleteObject(castToGlHandle(static_cast<unsigned int>(handle))));
+        glCheck(glDeleteProgram(static_cast<GLuint>(handle)));
 #else
     (void)handle;
 #endif
@@ -994,7 +1129,18 @@ void GLBackend::destroyShader(BackendShaderHandle handle)
 void GLBackend::bindShader(BackendShaderHandle handle)
 {
 #ifndef SFML_OPENGL_ES
-    glCheck(GLEXT_glUseProgramObject(castToGlHandle(static_cast<unsigned int>(handle))));
+    if (handle)
+    {
+        const auto program = static_cast<GLuint>(handle);
+        glCheck(glUseProgram(program));
+        m_activeProgram = program;
+    }
+    else
+    {
+        // Restore the default shader program (required in core profile)
+        glCheck(glUseProgram(m_defaultProgram));
+        m_activeProgram = m_defaultProgram;
+    }
 #else
     (void)handle;
 #endif
@@ -1005,7 +1151,7 @@ void GLBackend::bindShader(BackendShaderHandle handle)
 int GLBackend::getUniformLocation(BackendShaderHandle handle, const std::string& name)
 {
 #ifndef SFML_OPENGL_ES
-    return glCheck(GLEXT_glGetUniformLocation(castToGlHandle(static_cast<unsigned int>(handle)), name.c_str()));
+    return glCheck(glGetUniformLocation(static_cast<GLuint>(handle), name.c_str()));
 #else
     (void)handle;
     (void)name;
@@ -1022,7 +1168,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, float x)
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform1f(location, x));
+    glCheck(glUniform1f(location, x));
 #else
     (void)handle;
     (void)location;
@@ -1034,7 +1180,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform2f(location, v.x, v.y));
+    glCheck(glUniform2f(location, v.x, v.y));
 #else
     (void)handle;
     (void)location;
@@ -1046,7 +1192,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform3f(location, v.x, v.y, v.z));
+    glCheck(glUniform3f(location, v.x, v.y, v.z));
 #else
     (void)handle;
     (void)location;
@@ -1058,7 +1204,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform4f(location, v.x, v.y, v.z, v.w));
+    glCheck(glUniform4f(location, v.x, v.y, v.z, v.w));
 #else
     (void)handle;
     (void)location;
@@ -1070,7 +1216,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, int x)
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform1i(location, x));
+    glCheck(glUniform1i(location, x));
 #else
     (void)handle;
     (void)location;
@@ -1082,7 +1228,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform2i(location, static_cast<int>(v.x), static_cast<int>(v.y)));
+    glCheck(glUniform2i(location, static_cast<int>(v.x), static_cast<int>(v.y)));
 #else
     (void)handle;
     (void)location;
@@ -1094,7 +1240,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform3i(location, static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)));
+    glCheck(glUniform3i(location, static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)));
 #else
     (void)handle;
     (void)location;
@@ -1106,11 +1252,11 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform4i(location,
-                              static_cast<int>(v.x),
-                              static_cast<int>(v.y),
-                              static_cast<int>(v.z),
-                              static_cast<int>(v.w)));
+    glCheck(glUniform4i(location,
+                        static_cast<int>(v.x),
+                        static_cast<int>(v.y),
+                        static_cast<int>(v.z),
+                        static_cast<int>(v.w)));
 #else
     (void)handle;
     (void)location;
@@ -1122,7 +1268,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, bool x)
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform1i(location, static_cast<int>(x)));
+    glCheck(glUniform1i(location, static_cast<int>(x)));
 #else
     (void)handle;
     (void)location;
@@ -1134,7 +1280,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform2i(location, static_cast<int>(v.x), static_cast<int>(v.y)));
+    glCheck(glUniform2i(location, static_cast<int>(v.x), static_cast<int>(v.y)));
 #else
     (void)handle;
     (void)location;
@@ -1146,7 +1292,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform3i(location, static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)));
+    glCheck(glUniform3i(location, static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)));
 #else
     (void)handle;
     (void)location;
@@ -1158,11 +1304,11 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform4i(location,
-                              static_cast<int>(v.x),
-                              static_cast<int>(v.y),
-                              static_cast<int>(v.z),
-                              static_cast<int>(v.w)));
+    glCheck(glUniform4i(location,
+                        static_cast<int>(v.x),
+                        static_cast<int>(v.y),
+                        static_cast<int>(v.z),
+                        static_cast<int>(v.w)));
 #else
     (void)handle;
     (void)location;
@@ -1174,7 +1320,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniformMatrix3fv(location, 1, GL_FALSE, m.array.data()));
+    glCheck(glUniformMatrix3fv(location, 1, GL_FALSE, m.array.data()));
 #else
     (void)handle;
     (void)location;
@@ -1186,7 +1332,7 @@ void GLBackend::setUniform(BackendShaderHandle handle, int location, const Glsl:
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniformMatrix4fv(location, 1, GL_FALSE, m.array.data()));
+    glCheck(glUniformMatrix4fv(location, 1, GL_FALSE, m.array.data()));
 #else
     (void)handle;
     (void)location;
@@ -1203,14 +1349,14 @@ void GLBackend::setUniformTexture(BackendShaderHandle  handle,
     (void)handle;
 
     // Activate the texture unit and bind the texture
-    glCheck(GLEXT_glActiveTexture(GLEXT_GL_TEXTURE0 + static_cast<GLenum>(textureUnit)));
+    glCheck(glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(textureUnit)));
     glCheck(glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureHandle)));
 
     // Set the sampler uniform to the texture unit index
-    glCheck(GLEXT_glUniform1i(location, textureUnit));
+    glCheck(glUniform1i(location, textureUnit));
 
     // Reset active texture unit to 0
-    glCheck(GLEXT_glActiveTexture(GLEXT_GL_TEXTURE0));
+    glCheck(glActiveTexture(GL_TEXTURE0));
 #else
     (void)handle;
     (void)location;
@@ -1228,7 +1374,7 @@ void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const 
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform1fv(location, static_cast<GLsizei>(length), data));
+    glCheck(glUniform1fv(location, static_cast<GLsizei>(length), data));
 #else
     (void)handle;
     (void)location;
@@ -1241,7 +1387,7 @@ void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const 
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform2fv(location, static_cast<GLsizei>(length), &data[0].x));
+    glCheck(glUniform2fv(location, static_cast<GLsizei>(length), &data[0].x));
 #else
     (void)handle;
     (void)location;
@@ -1254,7 +1400,7 @@ void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const 
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform3fv(location, static_cast<GLsizei>(length), &data[0].x));
+    glCheck(glUniform3fv(location, static_cast<GLsizei>(length), &data[0].x));
 #else
     (void)handle;
     (void)location;
@@ -1267,7 +1413,7 @@ void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const 
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniform4fv(location, static_cast<GLsizei>(length), &data[0].x));
+    glCheck(glUniform4fv(location, static_cast<GLsizei>(length), &data[0].x));
 #else
     (void)handle;
     (void)location;
@@ -1280,7 +1426,7 @@ void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const 
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniformMatrix3fv(location, static_cast<GLsizei>(length), GL_FALSE, data[0].array.data()));
+    glCheck(glUniformMatrix3fv(location, static_cast<GLsizei>(length), GL_FALSE, data[0].array.data()));
 #else
     (void)handle;
     (void)location;
@@ -1293,7 +1439,7 @@ void GLBackend::setUniformArray(BackendShaderHandle handle, int location, const 
 {
 #ifndef SFML_OPENGL_ES
     (void)handle;
-    glCheck(GLEXT_glUniformMatrix4fv(location, static_cast<GLsizei>(length), GL_FALSE, data[0].array.data()));
+    glCheck(glUniformMatrix4fv(location, static_cast<GLsizei>(length), GL_FALSE, data[0].array.data()));
 #else
     (void)handle;
     (void)location;
@@ -1917,8 +2063,8 @@ bool GLBackend::isShaderAvailable() const
 {
     ensureExtensionsInit();
 #ifndef SFML_OPENGL_ES
-    return GLEXT_multitexture && GLEXT_shading_language_100 && GLEXT_shader_objects && GLEXT_vertex_shader &&
-           GLEXT_fragment_shader;
+    // GL 3.3 core always has shaders
+    return true;
 #else
     return false;
 #endif
@@ -1930,7 +2076,8 @@ bool GLBackend::isGeometryShaderAvailable() const
 {
     ensureExtensionsInit();
 #ifndef SFML_OPENGL_ES
-    return isShaderAvailable() && (GLEXT_geometry_shader4 || GLEXT_GL_VERSION_3_2);
+    // GL 3.2+ has geometry shaders
+    return true;
 #else
     return false;
 #endif
@@ -1960,7 +2107,7 @@ std::size_t GLBackend::getMaxTextureUnits() const
     static const GLint maxUnits = []
     {
         GLint value = 0;
-        glCheck(glGetIntegerv(GLEXT_GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &value));
+        glCheck(glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &value));
         return value;
     }();
     return static_cast<std::size_t>(maxUnits);
@@ -1977,48 +2124,6 @@ std::size_t GLBackend::getMaxTextureUnits() const
 void GLBackend::flushPipeline()
 {
     glCheck(glFlush());
-}
-
-
-////////////////////////////////////////////////////////////
-void GLBackend::pushRenderStates()
-{
-#ifdef SFML_DEBUG
-    // Make sure that the user didn't leave an unchecked OpenGL error
-    const GLenum error = glGetError();
-    if (error != GL_NO_ERROR)
-    {
-        err() << "OpenGL error (" << error << ") detected in user code, "
-              << "you should check for errors with glGetError()" << std::endl;
-    }
-#endif
-
-#ifndef SFML_OPENGL_ES
-    glCheck(glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS));
-    glCheck(glPushAttrib(GL_ALL_ATTRIB_BITS));
-#endif
-    glCheck(glMatrixMode(GL_MODELVIEW));
-    glCheck(glPushMatrix());
-    glCheck(glMatrixMode(GL_PROJECTION));
-    glCheck(glPushMatrix());
-    glCheck(glMatrixMode(GL_TEXTURE));
-    glCheck(glPushMatrix());
-}
-
-
-////////////////////////////////////////////////////////////
-void GLBackend::popRenderStates()
-{
-    glCheck(glMatrixMode(GL_PROJECTION));
-    glCheck(glPopMatrix());
-    glCheck(glMatrixMode(GL_MODELVIEW));
-    glCheck(glPopMatrix());
-    glCheck(glMatrixMode(GL_TEXTURE));
-    glCheck(glPopMatrix());
-#ifndef SFML_OPENGL_ES
-    glCheck(glPopClientAttrib());
-    glCheck(glPopAttrib());
-#endif
 }
 
 
@@ -2113,12 +2218,14 @@ bool GLBackend::copyBufferFallback(BackendBufferHandle destHandle,
 void GLBackend::prepareUniformUpdate(BackendShaderHandle handle)
 {
 #ifndef SFML_OPENGL_ES
-    const auto currentProgram = castToGlHandle(static_cast<unsigned int>(handle));
-    if (currentProgram)
+    const auto program = static_cast<GLuint>(handle);
+    if (program)
     {
-        m_savedProgram = castFromGlHandle(glCheck(GLEXT_glGetHandle(GLEXT_GL_PROGRAM_OBJECT)));
-        if (currentProgram != castToGlHandle(m_savedProgram))
-            glCheck(GLEXT_glUseProgramObject(currentProgram));
+        GLint currentProg = 0;
+        glCheck(glGetIntegerv(GL_CURRENT_PROGRAM, &currentProg));
+        m_savedProgram = static_cast<unsigned int>(currentProg);
+        if (program != static_cast<GLuint>(m_savedProgram))
+            glCheck(glUseProgram(program));
     }
 #else
     (void)handle;
@@ -2130,7 +2237,7 @@ void GLBackend::prepareUniformUpdate(BackendShaderHandle handle)
 void GLBackend::finalizeUniformUpdate()
 {
 #ifndef SFML_OPENGL_ES
-    glCheck(GLEXT_glUseProgramObject(castToGlHandle(m_savedProgram)));
+    glCheck(glUseProgram(m_savedProgram));
     m_savedProgram = 0;
 #endif
 }
@@ -2141,6 +2248,57 @@ void GLBackend::resetStates()
 {
     ensureExtensionsInit();
 
+#ifndef SFML_OPENGL_ES
+    // Create VAO if not yet created
+    if (!m_vao)
+    {
+        glCheck(glGenVertexArrays(1, &m_vao));
+    }
+    glCheck(glBindVertexArray(m_vao));
+
+    // Create streaming VBO for client-side vertex data
+    if (!m_streamVbo)
+    {
+        glCheck(glGenBuffers(1, &m_streamVbo));
+    }
+
+    // Compile default shader if not yet compiled
+    if (!m_defaultProgram)
+    {
+        compileDefaultShader();
+    }
+
+    // Bind default shader
+    glCheck(glUseProgram(m_defaultProgram));
+    m_activeProgram = m_defaultProgram;
+
+    // Make sure texture unit 0 is active
+    glCheck(glActiveTexture(GL_TEXTURE0));
+
+    // Enable vertex attributes (always enabled with VAO)
+    glCheck(glEnableVertexAttribArray(0)); // position
+    glCheck(glEnableVertexAttribArray(1)); // color
+    glCheck(glEnableVertexAttribArray(2)); // texCoords
+
+    // Set default OpenGL states (core-profile safe)
+    glCheck(glDisable(GL_CULL_FACE));
+    glCheck(glDisable(GL_STENCIL_TEST));
+    glCheck(glDisable(GL_DEPTH_TEST));
+    glCheck(glDisable(GL_SCISSOR_TEST));
+    glCheck(glEnable(GL_BLEND));
+    glCheck(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+
+    // Initialize pending uniform state to identity
+    // clang-format off
+    m_pendingProjection = {1.f, 0.f, 0.f, 0.f,
+                           0.f, 1.f, 0.f, 0.f,
+                           0.f, 0.f, 1.f, 0.f,
+                           0.f, 0.f, 0.f, 1.f};
+    m_pendingModel      = m_pendingProjection;
+    m_pendingTexMatrix   = m_pendingProjection;
+    // clang-format on
+    m_pendingTextured = false;
+#else
     // Make sure texture unit 0 is active
     if (GLEXT_multitexture)
     {
@@ -2148,7 +2306,7 @@ void GLBackend::resetStates()
         glCheck(GLEXT_glActiveTexture(GLEXT_GL_TEXTURE0));
     }
 
-    // Define the default OpenGL states
+    // Define the default OpenGL states (fixed-function for GLES 1.x)
     glCheck(glDisable(GL_CULL_FACE));
     glCheck(glDisable(GL_LIGHTING));
     glCheck(glDisable(GL_STENCIL_TEST));
@@ -2163,6 +2321,78 @@ void GLBackend::resetStates()
     glCheck(glEnableClientState(GL_COLOR_ARRAY));
     glCheck(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
     glCheck(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+#endif
 }
+
+
+#ifndef SFML_OPENGL_ES
+////////////////////////////////////////////////////////////
+void GLBackend::compileDefaultShader()
+{
+    // Compile vertex shader
+    const GLuint vertShader = glCheck(glCreateShader(GL_VERTEX_SHADER));
+    glCheck(glShaderSource(vertShader, 1, &defaultVertexShaderSource, nullptr));
+    glCheck(glCompileShader(vertShader));
+
+    GLint success = 0;
+    glCheck(glGetShaderiv(vertShader, GL_COMPILE_STATUS, &success));
+    if (success == GL_FALSE)
+    {
+        char log[1024];
+        glCheck(glGetShaderInfoLog(vertShader, sizeof(log), nullptr, log));
+        err() << "Failed to compile default vertex shader:" << '\n' << log << std::endl;
+        glCheck(glDeleteShader(vertShader));
+        return;
+    }
+
+    // Compile fragment shader
+    const GLuint fragShader = glCheck(glCreateShader(GL_FRAGMENT_SHADER));
+    glCheck(glShaderSource(fragShader, 1, &defaultFragmentShaderSource, nullptr));
+    glCheck(glCompileShader(fragShader));
+
+    glCheck(glGetShaderiv(fragShader, GL_COMPILE_STATUS, &success));
+    if (success == GL_FALSE)
+    {
+        char log[1024];
+        glCheck(glGetShaderInfoLog(fragShader, sizeof(log), nullptr, log));
+        err() << "Failed to compile default fragment shader:" << '\n' << log << std::endl;
+        glCheck(glDeleteShader(vertShader));
+        glCheck(glDeleteShader(fragShader));
+        return;
+    }
+
+    // Link program
+    m_defaultProgram = glCheck(glCreateProgram());
+    glCheck(glAttachShader(m_defaultProgram, vertShader));
+    glCheck(glAttachShader(m_defaultProgram, fragShader));
+    glCheck(glLinkProgram(m_defaultProgram));
+
+    glCheck(glDeleteShader(vertShader));
+    glCheck(glDeleteShader(fragShader));
+
+    glCheck(glGetProgramiv(m_defaultProgram, GL_LINK_STATUS, &success));
+    if (success == GL_FALSE)
+    {
+        char log[1024];
+        glCheck(glGetProgramInfoLog(m_defaultProgram, sizeof(log), nullptr, log));
+        err() << "Failed to link default shader program:" << '\n' << log << std::endl;
+        glCheck(glDeleteProgram(m_defaultProgram));
+        m_defaultProgram = 0;
+        return;
+    }
+
+    // Cache uniform locations
+    m_defaultUniforms.projection    = glCheck(glGetUniformLocation(m_defaultProgram, "sf_projection"));
+    m_defaultUniforms.model         = glCheck(glGetUniformLocation(m_defaultProgram, "sf_model"));
+    m_defaultUniforms.textureMatrix = glCheck(glGetUniformLocation(m_defaultProgram, "sf_textureMatrix"));
+    m_defaultUniforms.textured      = glCheck(glGetUniformLocation(m_defaultProgram, "sf_textured"));
+    m_defaultUniforms.texture       = glCheck(glGetUniformLocation(m_defaultProgram, "sf_texture"));
+
+    // Set texture sampler to unit 0 (only needs to be done once)
+    glCheck(glUseProgram(m_defaultProgram));
+    if (m_defaultUniforms.texture != -1)
+        glCheck(glUniform1i(m_defaultUniforms.texture, 0));
+}
+#endif
 
 } // namespace sf::priv
