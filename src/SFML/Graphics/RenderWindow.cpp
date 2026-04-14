@@ -31,7 +31,7 @@
 
 #include <SFML/Window/VideoMode.hpp>
 
-#if !defined(SFML_BACKEND_METAL) && !defined(SFML_BACKEND_DX12)
+#if !defined(SFML_BACKEND_METAL) && !defined(SFML_BACKEND_DX12) && !defined(SFML_BACKEND_VULKAN)
 #include <SFML/Window/GlContext.hpp>
 #endif
 
@@ -49,7 +49,7 @@ namespace sf
 ////////////////////////////////////////////////////////////
 struct RenderWindow::RenderContext
 {
-#if !defined(SFML_BACKEND_METAL) && !defined(SFML_BACKEND_DX12)
+#if !defined(SFML_BACKEND_METAL) && !defined(SFML_BACKEND_DX12) && !defined(SFML_BACKEND_VULKAN)
     std::shared_ptr<void>             sharedGlContext{priv::GlContext::getSharedContext()};
     std::unique_ptr<priv::GlContext>  glContext;
 #endif
@@ -108,7 +108,7 @@ void RenderWindow::create(VideoMode mode, const String& title, std::uint32_t sty
     // Create the rendering context
     m_renderContext = std::make_unique<RenderContext>();
 
-#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12) || defined(SFML_BACKEND_VULKAN)
     auto& backend = priv::getGraphicsBackend();
     backend.initializeWindowRendering(getNativeHandle(), mode.size, settings);
     m_settings = settings;
@@ -156,7 +156,7 @@ void RenderWindow::create(WindowHandle handle, const ContextSettings& settings)
 
     m_renderContext = std::make_unique<RenderContext>();
 
-#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12) || defined(SFML_BACKEND_VULKAN)
     auto& backend = priv::getGraphicsBackend();
     backend.initializeWindowRendering(getNativeHandle(), m_impl->getSize(), settings);
     m_settings = settings;
@@ -176,7 +176,7 @@ void RenderWindow::create(WindowHandle handle, const ContextSettings& settings)
 ////////////////////////////////////////////////////////////
 void RenderWindow::close()
 {
-#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12) || defined(SFML_BACKEND_VULKAN)
     if (m_impl)
     {
         auto& backend = priv::getGraphicsBackend();
@@ -199,7 +199,7 @@ const ContextSettings& RenderWindow::getSettings() const
 ////////////////////////////////////////////////////////////
 void RenderWindow::setVerticalSyncEnabled(bool enabled)
 {
-#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12) || defined(SFML_BACKEND_VULKAN)
     if (m_impl)
     {
         auto& backend = priv::getGraphicsBackend();
@@ -227,7 +227,7 @@ bool RenderWindow::setActive(bool active)
 {
     bool result = true;
 
-#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12) || defined(SFML_BACKEND_VULKAN)
     if (m_impl)
     {
         auto& backend = priv::getGraphicsBackend();
@@ -264,7 +264,7 @@ bool RenderWindow::setActive(bool active)
 ////////////////////////////////////////////////////////////
 void RenderWindow::display()
 {
-#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12) || defined(SFML_BACKEND_VULKAN)
     if (m_impl)
     {
         auto& backend = priv::getGraphicsBackend();

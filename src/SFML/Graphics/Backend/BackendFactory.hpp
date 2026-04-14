@@ -33,6 +33,8 @@
 #include <SFML/Graphics/Backend/Metal/MetalBackend.hpp>
 #elif defined(SFML_BACKEND_DX12)
 #include <SFML/Graphics/Backend/DX12/DX12Backend.hpp>
+#elif defined(SFML_BACKEND_VULKAN)
+#include <SFML/Graphics/Backend/Vulkan/VulkanBackend.hpp>
 #else
 #include <SFML/Graphics/Backend/OpenGL/GLBackend.hpp>
 #endif
@@ -53,6 +55,8 @@ inline GraphicsBackend& getGraphicsBackend()
     static MetalBackend backend;
 #elif defined(SFML_BACKEND_DX12)
     static DX12Backend backend;
+#elif defined(SFML_BACKEND_VULKAN)
+    static VulkanBackend backend;
 #else
     static GLBackend backend;
 #endif

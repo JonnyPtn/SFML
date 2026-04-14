@@ -97,6 +97,11 @@ elseif(SFML_GRAPHICS_BACKEND STREQUAL "DX12")
         ${SRCROOT}/Backend/DX12/DX12Backend.hpp
         ${SRCROOT}/Backend/DX12/DX12Backend.cpp
     )
+elseif(SFML_GRAPHICS_BACKEND STREQUAL "Vulkan")
+    list(APPEND BACKEND_SRC
+        ${SRCROOT}/Backend/Vulkan/VulkanBackend.hpp
+        ${SRCROOT}/Backend/Vulkan/VulkanBackend.cpp
+    )
 else()
     list(APPEND BACKEND_SRC
         ${SRCROOT}/Backend/OpenGL/GLBackend.hpp
@@ -121,6 +126,53 @@ if(SFML_GRAPHICS_BACKEND STREQUAL "Metal")
 elseif(SFML_GRAPHICS_BACKEND STREQUAL "DX12")
     target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_DX12=1)
     target_link_libraries(sfml-graphics PRIVATE d3d12 dxgi d3dcompiler)
+elseif(SFML_GRAPHICS_BACKEND STREQUAL "Vulkan")
+    find_package(Vulkan REQUIRED)
+    target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_VULKAN=1)
+    target_link_libraries(sfml-graphics PRIVATE Vulkan::Vulkan)
+
+    # Compile SPIR-V shaders at build time
+    set(SHADER_DIR ${SRCROOT}/Backend/Vulkan/shaders)
+    set(SPIRV_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/spirv)
+    file(MAKE_DIRECTORY ${SPIRV_OUTPUT_DIR})
+
+    find_program(GLSLC glslc HINTS $ENV{VULKAN_SDK}/Bin ${Vulkan_INCLUDE_DIR}/../Bin)
+    if(NOT GLSLC)
+        message(FATAL_ERROR "glslc not found. Install the Vulkan SDK to compile SPIR-V shaders.")
+    endif()
+
+    set(SHADER_SOURCES
+        ${SHADER_DIR}/default.vert
+        ${SHADER_DIR}/textured.frag
+        ${SHADER_DIR}/color.frag
+    )
+    set(SHADER_NAMES default_vert textured_frag color_frag)
+    set(SHADER_ARRAY_NAMES defaultVert texturedFrag colorFrag)
+    set(SPIRV_HEADERS)
+
+    foreach(SHADER_SRC SHADER_NAME SHADER_ARRAY_NAME IN ZIP_LISTS SHADER_SOURCES SHADER_NAMES SHADER_ARRAY_NAMES)
+        set(SPV_FILE ${SPIRV_OUTPUT_DIR}/${SHADER_NAME}.spv)
+        set(HDR_FILE ${SPIRV_OUTPUT_DIR}/${SHADER_NAME}_spv.h)
+
+        add_custom_command(
+            OUTPUT ${SPV_FILE}
+            COMMAND ${GLSLC} -o ${SPV_FILE} ${SHADER_SRC}
+            DEPENDS ${SHADER_SRC}
+            COMMENT "Compiling SPIR-V: ${SHADER_SRC}"
+        )
+        add_custom_command(
+            OUTPUT ${HDR_FILE}
+            COMMAND ${CMAKE_COMMAND} -DINPUT=${SPV_FILE} -DOUTPUT=${HDR_FILE} -DARRAY_NAME=${SHADER_ARRAY_NAME}Spv
+                -P ${SHADER_DIR}/CompileShaders.cmake
+            DEPENDS ${SPV_FILE} ${SHADER_DIR}/CompileShaders.cmake
+            COMMENT "Embedding SPIR-V: ${SHADER_NAME}_spv.h"
+        )
+        list(APPEND SPIRV_HEADERS ${HDR_FILE})
+    endforeach()
+
+    add_custom_target(sfml-vulkan-shaders DEPENDS ${SPIRV_HEADERS})
+    add_dependencies(sfml-graphics sfml-vulkan-shaders)
+    target_include_directories(sfml-graphics PRIVATE ${SPIRV_OUTPUT_DIR})
 else()
     target_compile_definitions(sfml-graphics PUBLIC SFML_BACKEND_OPENGL=1)
 endif()

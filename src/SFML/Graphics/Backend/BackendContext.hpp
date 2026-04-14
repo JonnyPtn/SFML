@@ -27,7 +27,7 @@
 ////////////////////////////////////////////////////////////
 // Headers
 ////////////////////////////////////////////////////////////
-#if !defined(SFML_BACKEND_METAL) && !defined(SFML_BACKEND_DX12)
+#if !defined(SFML_BACKEND_METAL) && !defined(SFML_BACKEND_DX12) && !defined(SFML_BACKEND_VULKAN)
 #include <SFML/Window/GlResource.hpp>
 #endif
 
@@ -43,7 +43,7 @@ namespace sf::priv
 /// this is a no-op.
 ///
 ////////////////////////////////////////////////////////////
-#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12)
+#if defined(SFML_BACKEND_METAL) || defined(SFML_BACKEND_DX12) || defined(SFML_BACKEND_VULKAN)
 
 struct BackendContextLock
 {

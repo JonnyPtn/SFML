@@ -38,6 +38,13 @@
       "cacheVariables": {
         "SFML_GRAPHICS_BACKEND": "DX12"
       }
+    },
+    {
+      "name": "vulkan",
+      "inherits": "dev",
+      "cacheVariables": {
+        "SFML_GRAPHICS_BACKEND": "Vulkan"
+      }
     }
   ]
 }
